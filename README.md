@@ -60,15 +60,5 @@
 
 ### 数据库设计
 
-```sql
-CREATE TABLE words (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    word VARCHAR(255) NOT NULL UNIQUE,        -- 词汇唯一，用于查重
-    explanation TEXT NOT NULL,                -- 解释
-    type ENUM('passive', 'active') NOT NULL,  -- 词汇分类，passive表示认知词，active表示双向词
-    level INT DEFAULT 0,                      -- 当前等级 0-5
-    next_review_date DATE,                    -- 下次复习日期
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- 添加的日期，用于展示
-);
-```
+[文件](./docs/database.md)
 
