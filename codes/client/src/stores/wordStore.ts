@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { reactive, toRaw } from 'vue';
 import { axiosWrapper } from '../utilities/axios-wrapper';
 import { WordList, WordPayload, WordItem } from '../type';
 import dayjs from 'dayjs';
@@ -9,6 +10,8 @@ export const useWordStore = defineStore('word', {
         activeWordsStruct: {},
         passiveWordsStruct: {},
         reviewQueue: [] as WordList,
+        memoryWindow: [] as WordList,
+        memoryReviewKey: 0
     }),
     actions: {
         async fetchWords(group: number = 1) {
@@ -71,7 +74,18 @@ export const useWordStore = defineStore('word', {
         getCandidates(type: 'active' | 'passive', mode: 'new' | 'review'): WordList {
             const struct = type === 'active' ? (this.activeWordsStruct as any) : (this.passiveWordsStruct as any);
             if (!struct) return [];
-            return mode === 'new' ? (struct.wordsToLearn || []) : (struct.wordsToReview || []);
+            const candidates = mode === 'new' ? (struct.wordsToLearn || []) : (struct.wordsToReview || []);
+            if (type === 'active') {
+                const reverseCandidates = candidates.map((word: WordItem) => {
+                    const raw = toRaw(word);
+                    const tempWord = reactive({ ...raw }) as WordItem;
+                    const temp = tempWord.word;
+                    tempWord.word = raw.explanation;
+                    tempWord.explanation = temp;
+                    return tempWord;
+                });
+                return [...candidates, ...reverseCandidates];
+            } else return candidates
         },
         // 初始化背诵队列：筛选 + 随机打乱 + 游标归零
         initReviewQueue(type: 'active' | 'passive', mode: 'new' | 'review') {
@@ -94,6 +108,7 @@ export const useWordStore = defineStore('word', {
         // 重置队列
         resetQueue() {
             this.reviewQueue = [];
+            this.memoryWindow = [];
         },
         async updateWordStatus(word: WordItem, toLevel: number | null = null) {
             const id = word.id;
@@ -135,9 +150,44 @@ export const useWordStore = defineStore('word', {
             // 用于在某个单词被标记为记住后剔除复习队列，这是真的剔除
             this.reviewQueue.shift();
         },
-        aRevoir(word: WordItem){
+        aRevoirRQ(word: WordItem){
             this.reviewQueue.push(word);
             this.reviewQueue.shift();
         },
+        // 记忆窗口控制相关的函数
+        enqueueToWindow(word: WordItem, isNew: Boolean){
+            // 只有通过了词汇队列被踢掉的词汇才认为是记住了，在学习新词的背景下需要修改数据库
+            let head = null;
+            if (this.memoryWindow.length === 5) head = this.memoryWindow.shift();
+            this.memoryWindow.push(word);
+            if (!!head && isNew) this.updateWordStatus(head);
+        },
+        isWindowEmpty(){
+            return this.memoryWindow.length === 0;
+        },
+        isWindowEnd(){
+            const result = this.memoryReviewKey === this.memoryWindow.length;
+            console.log("查看memory窗口是否看完：", result, " (", this.memoryReviewKey, "/", this.memoryWindow.length, ")");
+            if (result) this.memoryReviewKey = 0; // 在比较的时候就做好重置，让指针回到队头
+            return result;
+        },
+        peekMemory() {
+            const word = this.memoryWindow[this.memoryReviewKey];
+            this.memoryReviewKey++;
+            return word;
+        },
+        aRevoirMQ(word: WordItem) {
+            this.reviewQueue.push(word);
+            this.memoryReviewKey--;
+            this.memoryWindow = this.memoryWindow.filter(w => w.id !== word.id);
+            console.log("After aRevoirMQ, memoryWindow:", this.memoryWindow);
+        },
+        updateRestMemory(){
+            if (this.memoryWindow.length > 0) {
+                this.memoryWindow.forEach(async word => {
+                    await this.updateWordStatus(word);
+                })
+            }
+        }
     }
 });

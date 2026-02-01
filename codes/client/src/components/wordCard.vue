@@ -23,7 +23,7 @@
                         <div class="card-content">
                             <div class="align-self-start" style="width: 100%;">
                                 <div class="d-flex flex-space-between" style="width: 100%;">
-                                    <p class="text-h4" style="flex: 1 1 auto;">Explication</p>
+                                    <p class="text-h5" style="flex: 1 1 auto;">Explication</p>
                                     <v-card-actions class="pa-0">
                                         <v-btn color="teal-accent-4 mr-2" icon="mdi-backspace" @click="verso = false"></v-btn>
                                     </v-card-actions>
@@ -80,21 +80,30 @@ const props = defineProps({
 });
 
 async function learnRetenu() {
-    console.log("Retenu clicked for word:", props.word);
-    // 根据学习新词还是复习词汇中的learn有不同的处理，如果是学习新词，需要更新词汇的数据库状态，如果是复习词汇，则只需踢出队列
-    if (props.learnStatus === 'new') {
-        await wordStore.updateWordStatus(props.word);
+    // 针对 位于词汇队列中的词汇和位于记忆队列中的词汇有不同的操作
+    const index = wordStore.reviewQueue.findIndex(w => w.id === props.word.id && w.word === props.word.word);
+    // console.log("寻找词汇在word词汇队列中的位置，index =", index);
+    if (index !== -1) {
+        // console.log("词汇位于词汇队列，位置索引：", index, "于是将word队列的这个词汇提出到记忆窗口");
+        // 词汇位于词汇队列
+        // 踢出词汇队列
+        wordStore.deleteHead();
+        // 但凡是双选界面，就是在学习/复习，都要加入 memoryWindow
+        wordStore.enqueueToWindow(props.word, props.learnStatus === 'new'); // 根据学习新词还是复习词汇中的learn有不同的处理，如果是学习新词，需要更新词汇的数据库状态，如果是复习词汇，则只需踢出队列
     }
-    // 踢出当前卡片，加载下一张
-    wordStore.deleteHead();
+    // 加载下一张，位于记忆队列直接加载下一个
+    // console.log("加载下一张卡片，如果不位于词汇队列，但是刚才又复习到了，说明在记忆队列，直接加载下一个，不用处理队列");
     emit('nextCard');
     verso.value = false;
 }
 
 function ARevoir() {
-    if (wordStore !== null) {
-        wordStore.aRevoir(props.word); // 操作的一定是队头
-    }
+    // 也要根据位于词汇队列还是记忆队列区分
+    const index = wordStore.reviewQueue.findIndex(w => w.id === props.word.id && w.word === props.word.word);
+    console.log("寻找词汇在word词汇队列中的位置，index =", index);
+    if (index !== -1) wordStore.aRevoirRQ(props.word);
+    else wordStore.aRevoirMQ(props.word);
+
     emit('nextCard');
     verso.value = false;
 }

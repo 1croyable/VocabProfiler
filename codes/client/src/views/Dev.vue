@@ -4,7 +4,7 @@
             <v-col cols="12" md="8" class="pa-0">
                 <div id="left-bg" class="position-relative">
                     <div id="recto-verso">
-                        <v-card width="42%" height="100%" class="rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar" style="display: inline-block;">
+                        <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title class="text-h6">Le recto</v-card-title>
                             <v-card-text>
                                 <v-divider :thickness="2" color="info" length="84%" class="mb-4"></v-divider>
@@ -14,14 +14,16 @@
                                     variant="underlined"
                                     hide-details
                                     single-line
-                                    auto-grow
+                                    :auto-grow="isDesktop"
+                                    :rows="4"
+                                    :max-rows="isDesktop ? null : 4"
                                     color="cyan-darken-4"
                                     clearable
                                     v-model="rectoText"
                                 ></v-textarea>
                             </v-card-text>
                         </v-card>
-                        <v-card width="42%" height="100%" class="rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar" style="display: inline-block;">
+                        <v-card width="42%" class="verso-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title>
                                 <div id="verso-title">
                                     <p style="display: inline-block;" class="text-h6">
@@ -48,7 +50,9 @@
                                     variant="underlined"
                                     hide-details
                                     single-line
-                                    auto-grow
+                                    :auto-grow="isDesktop"
+                                    :rows="4"
+                                    :max-rows="isDesktop ? null : 4"
                                     color="cyan-darken-4"
                                     clearable
                                     v-model="versoText"
@@ -60,7 +64,7 @@
             </v-col>
             <v-col cols="12" md="4" class="pa-2">
                 <div v-if="currCard">
-                    <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab">Button</v-btn>
+                    <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab">Back</v-btn>
 
                     <wordCard 
                     :cardType="cardCurrType"
@@ -121,6 +125,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
+import { useDisplay } from 'vuetify';
 import { useWordStore } from '@/stores';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
@@ -132,6 +137,8 @@ const tab = ref("a");
 const currCard = ref(null);
 const cardCurrType = ref("");
 const learnStatus = ref("");
+
+const { mdAndUp: isDesktop } = useDisplay();
 
 let queueLength = 0;
 let reviewWordCount = 0; // 用来记录复习队列中已经复习过的单词数量，进而区分第一次复习还是循环复习
@@ -159,8 +166,6 @@ function initReviewQueue(type) {
         learnStatus.value = type.split(',')[1];
         wordStore.resetQueue();
         queueLength = wordStore.initReviewQueue(type.split(',')[0], type.split(',')[1]);
-        console.log("queueLength set to ", queueLength);
-        console.log("Initialized review queue with type:", type, "now the queue: ", wordStore.reviewQueue);
         currCard.value = wordStore.peekCurrent() ?? null;
         reviewWordCount = 0;
     }
@@ -168,7 +173,32 @@ function initReviewQueue(type) {
 
 function nextCard() {
     if (wordStore !== null) {
-        currCard.value = wordStore.peekCurrent() ?? null;
+        // learn模式下会有记忆窗口，review下没有
+        let nextWord = null;
+
+        if (cardCurrType.value === 'learn' && !wordStore.isWindowEmpty()) {
+            // 现在处于learn模式并且window不空
+            // 先判断memory是否复习完了，富国memory看完了就要继续看word队列里的
+            console.log("learn模式下且window不空");
+            if (wordStore.isWindowEnd()) {
+                console.log("memory窗口看完了，继续看word队列");
+                nextWord = wordStore.peekCurrent();
+                console.log("nextWord:", nextWord);
+                if (!nextWord) closeCard();
+                else currCard.value = nextWord;
+            }
+            else {
+                console.log("memory窗口没有看完，从memory窗口取出单词:", currCard.value);
+                currCard.value = wordStore.peekMemory();
+            }
+        }
+        else {
+            nextWord = wordStore.peekCurrent();
+            if (!nextWord) closeCard();
+            else currCard.value = nextWord
+        }
+        
+        // review模式在末尾会切换成learn模式
         if (cardCurrType.value === 'review') {
             reviewWordCount += 1;
             if (cardCurrType.value === 'review' && reviewWordCount >= queueLength) {
@@ -189,6 +219,12 @@ function backToTab() {
         wordStore.resetQueue();
         wordStore.fetchWords();
     }
+}
+
+function closeCard() {
+    if (learnStatus.value === 'new') wordStore.updateRestMemory();
+
+    backToTab();
 }
 
 onMounted(() => {
@@ -213,6 +249,8 @@ onMounted(() => {
         display: flex;
         justify-content: space-around;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
     }
 }
 
@@ -247,5 +285,30 @@ onMounted(() => {
 .fly-in-left-leave-from {
     transform: translateX(0);
     opacity: 1;
+}
+</style>
+
+<style lang="less" scoped>
+@media (max-width: 960px) {
+    #recto-verso {
+        width: 100%;
+        height: auto;
+        left: 0;
+        top: 0;
+        padding: 12px;
+        justify-content: center;
+    }
+
+    #recto-verso .recto-card,
+    #recto-verso .verso-card {
+        width: 100% !important;
+        height: auto !important;
+    }
+}
+@media (min-width: 960px) {
+    #recto-verso .recto-card,
+    #recto-verso .verso-card {
+        height: 100% !important;
+    }
 }
 </style>
