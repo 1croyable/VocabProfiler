@@ -14,14 +14,14 @@ export default defineConfig({
     open: '/dev', // 是否自动在浏览器打开
     proxy: {
       "/api": {
-        target: "http://192.168.0.105:3000",
+        target: "http://localhost:3000",
         changeOrigin: true,
         // secure: false, // 如果是https接口，需要配置这个参数
         // ws: true, // websocket是否支持
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       "/user": {
-        target: "http://192.168.0.105:3001",
+        target: "http://localhost:3001",
         changeOrigin: true,
         // secure: false, // 如果是https接口，需要配置这个参数
         // ws: true, // websocket是否支持

@@ -38,15 +38,54 @@ router.post('/add', async (req, res) => {
 });
 
 router.patch('/update-level', async (req, res) => {
-    const { id, level, next_review_date } = req.body;
+    const { id, word, level, next_review_date } = req.body;
 
     try {
-        await connection.execute('vocab_profiler_db', 'UPDATE words SET level = ?, next_review_date = ? WHERE id = ?', [level, next_review_date, id]);
+        await connection.execute('vocab_profiler_db', 'UPDATE words SET level = ?, next_review_date = ? WHERE id = ? AND word = ?', [level, next_review_date, id, word]);
     } catch (error) {
-        return res.status(500).json({ error: 'Failed to update word level' });
+        return res.status(500).json({ error: 'Failed to update word level'  });
     }
 
     res.json({ message: 'Word level updated successfully' });
 })
+
+router.get('/related', async (req, res) => {
+    const { word, explanation } = req.query;
+    let result;
+    // 先判断是否存在原词汇
+    const sql = `SELECT * FROM words WHERE word = ? AND explanation = ?`;
+    
+    try {
+        result = await connection.execute('vocab_profiler_db', sql, [word, explanation]);
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to fetch related words' });
+    }
+    
+    if (result.length !== 0) {
+        // 存在原词汇，继续查找相关词汇
+        const relatedSql = `SELECT id, word, explanation, type, level,
+        DATE_FORMAT(next_review_date, '%Y-%m-%d') as next_review_date, 
+        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
+        word_group
+        FROM words WHERE BINARY word = ?`;
+
+        try {
+            result = await connection.execute('vocab_profiler_db', relatedSql, [word]);
+        } catch (error) {
+            return res.status(500).json({ error: 'Failed to fetch related words' });
+        }
+
+        result.forEach((val, idx, arr) => {
+            arr[idx].needBtn = true;
+        });
+
+        res.json({'wordtype': 'original', 'relatedWords': result});
+    } else {
+        // 不存在原词汇，说明是倒转过来的卡片，不用做什么操作
+        res.json({'wordtype': 'reversed', 'relatedWords': result});
+    }
+
+    res.end();
+});
 
 module.exports = router;

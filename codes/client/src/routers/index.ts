@@ -1,14 +1,12 @@
 import { createRouter, Router, createWebHistory, RouteRecordRaw } from 'vue-router';
 
 import HomeRoutes from './home.routes';
-import DevRoutes from './dev.routes';
 
 import { useAlertStore } from '../stores';
 import { useAuthStore } from '../stores';
 
 const routes: Array<RouteRecordRaw> = [
     ...HomeRoutes,
-    ...DevRoutes,
     { path: '/:pathMatch(.*)*', redirect: '/' }
 ];
 

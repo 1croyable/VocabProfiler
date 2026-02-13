@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const cors = require('cors');
 const { getConfig } = require('./config/configLoader')
+const path = require('path');
 require('dotenv').config();
 
 // 路由
@@ -12,6 +13,9 @@ const healthCheckRouter = require('./apis/core/health-check');
 const wordRouter = require('./apis/core/word');
 
 const app = express();
+
+const distPath = path.join(__dirname, "../client/dist"); // 用于部署
+app.use(express.static(distPath));
 
 app.use(morgan('combined', { stream: logger.stream }));
 
