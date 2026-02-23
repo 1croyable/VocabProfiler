@@ -1,6 +1,6 @@
 <template>
     <div>
-        <v-btn :prepend-icon="preIcon" variant="text" @click="$emit('init')" :color="color">
+        <v-btn :disabled="props.loading" :prepend-icon="preIcon" variant="text" @click="$emit('init')" :color="color">
             <slot></slot>
         </v-btn>
     </div>
@@ -18,6 +18,11 @@ const props = defineProps({
         type: String,
         required: false,
         default: "black"
+    },
+    loading: {
+        type: Boolean,
+        required: false,
+        default: false
     }
 });
 </script>

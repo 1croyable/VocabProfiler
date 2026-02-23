@@ -50,40 +50,27 @@ router.patch('/update-level', async (req, res) => {
 })
 
 router.get('/related', async (req, res) => {
-    const { word, explanation } = req.query;
+    const { id } = req.query;
+
     let result;
-    // 先判断是否存在原词汇
-    const sql = `SELECT * FROM words WHERE word = ? AND explanation = ?`;
     
+    const relatedSql = `SELECT id, word, explanation, type, level,
+    DATE_FORMAT(next_review_date, '%Y-%m-%d') as next_review_date, 
+    DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
+    word_group
+    FROM words WHERE id = ?`;
+
     try {
-        result = await connection.execute('vocab_profiler_db', sql, [word, explanation]);
+        result = await connection.execute('vocab_profiler_db', relatedSql, [id]);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to fetch related words' });
     }
-    
-    if (result.length !== 0) {
-        // 存在原词汇，继续查找相关词汇
-        const relatedSql = `SELECT id, word, explanation, type, level,
-        DATE_FORMAT(next_review_date, '%Y-%m-%d') as next_review_date, 
-        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
-        word_group
-        FROM words WHERE BINARY word = ?`;
 
-        try {
-            result = await connection.execute('vocab_profiler_db', relatedSql, [word]);
-        } catch (error) {
-            return res.status(500).json({ error: 'Failed to fetch related words' });
-        }
+    result.forEach((val, idx, arr) => {
+        arr[idx].needBtn = true;
+    });
 
-        result.forEach((val, idx, arr) => {
-            arr[idx].needBtn = true;
-        });
-
-        res.json({'wordtype': 'original', 'relatedWords': result});
-    } else {
-        // 不存在原词汇，说明是倒转过来的卡片，不用做什么操作
-        res.json({'wordtype': 'reversed', 'relatedWords': result});
-    }
+    res.json({'wordtype': 'original', 'relatedWords': result});
 
     res.end();
 });

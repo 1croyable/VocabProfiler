@@ -7,11 +7,13 @@ interface Alert {
 
 interface AlertState {
     alert: Alert | null;
+    loading: boolean;
 }
 
 export const useAlertStore = defineStore('alert',{
     state: (): AlertState => ({
-        alert: null
+        alert: null,
+        loading: false
     }),
     actions: {
         success(message: string) {
@@ -22,6 +24,9 @@ export const useAlertStore = defineStore('alert',{
         },
         clear() {
             this.alert = null;
+        },
+        setLoading(isLoading: boolean) {
+            this.loading = isLoading;
         }
     }
 });

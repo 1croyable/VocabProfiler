@@ -14,18 +14,19 @@ export const useWordStore = defineStore('word', {
         memoryReviewKey: 0,
         activeWordsReversedWordFlagWhenLearn: {} as Record<string, number>,
         activeWordsProgressTempWordListWhenLearn: {} as Record<string, Array<WordItem>>,
-        activeWordsReversedWordFlagWhenReview: {} as Record<string, number>,
-        activeWordsProgressTempWordList: {} as Record<string, Array<WordItem>>,
         reviewWordCount: 0, // 用来记录复习队列中已经复习过的单词数量，进而区分第一次复习还是循环复习
         reviewWordLimitPosition: 0,
         memoryWindowLength: 5,
         memoryWindowProgressTempWordList: {} as Record<string, Array<WordItem>>,
+        // 为了复习过程中的状态更新设置的临时列表
+        reviewActiveWordStatusList: {} as Record<string, number>, // 这里的string是word, explanation的组合，因为要分辨正向词汇的多个意义
+        reviewActiveWordReversedStatusList: {} as Record<string, number>,
     }),
     actions: {
         async fetchWords(group: number = 1) {
             this.words = await axiosWrapper.get<WordList>(`/word/list?group=${group}`);
             // needBtn是前端控制的属性，默认全部为true
-            this.words = this.words.map(word => ({ ...word, __needBtn__: true }));
+            this.words = this.words.map(word => ({ ...word, __needBtn__: true, __isReversed__: false }));
             this.rangeWords();
         },
         async addWord(payload: WordPayload) {
@@ -37,7 +38,8 @@ export const useWordStore = defineStore('word', {
                 level: 0,
                 next_review_date: null,
                 created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
-                __needBtn__: true
+                __needBtn__: true,
+                __isReversed__: false
             })
 
             this.rangeWords();
@@ -92,6 +94,7 @@ export const useWordStore = defineStore('word', {
                     const temp = tempWord.word;
                     tempWord.word = raw.explanation;
                     tempWord.explanation = temp;
+                    tempWord.__isReversed__ = true;
                     return tempWord;
                 });
                 // 合并所有的，word有多个，解释只有一个，的倒转词汇，这个时候reverseCandidates里有多个项，explanation相同，需要合并word
@@ -113,7 +116,7 @@ export const useWordStore = defineStore('word', {
                         }
                     }
                 })
-                console.log([...candidates, ...reverseCandidatesReduced])
+                // console.log([...candidates, ...reverseCandidatesReduced])
                 return [...candidates, ...reverseCandidatesReduced];
             } else return candidates
         },
@@ -122,18 +125,38 @@ export const useWordStore = defineStore('word', {
             // 确保分组结构是最新的
             this.rangeWords();
             const candidates = this.getCandidates(type, mode);
-            this.reviewQueue = this.shuffle(candidates);
+            const thisTurnWords = this.shuffle(candidates).slice(0, 20);
+            this.reviewQueue = thisTurnWords;
+            this.adapteActiveWordReversedWordOrder();
             this.activeWordsReversedWordFlagWhenLearn = {};
-            this.activeWordsReversedWordFlagWhenReview = {};
-            this.activeWordsProgressTempWordList = {};
+            this.reviewActiveWordReversedStatusList = {};
+            this.reviewActiveWordStatusList = {};
             this.memoryWindowProgressTempWordList = {};
             this.reviewWordCount = 0;
             this.reviewWordLimitPosition = 0;
             return this.reviewQueue.length;
         },
+        adapteActiveWordReversedWordOrder(maxDistance: number = 5) {
+            if (!this.reviewQueue.length) return;
+            for (let i = 0; i < this.reviewQueue.length; i++) {
+                const current = this.reviewQueue[i];
+                if (current.__isReversed__) continue;
+
+                const reversedIndex = this.reviewQueue.findIndex(
+                    (w, idx) => idx > i && w.__isReversed__ && w.id === current.id
+                );
+
+                if (reversedIndex === -1) continue;
+                if (reversedIndex <= i + maxDistance) continue;
+
+                const [reversedItem] = this.reviewQueue.splice(reversedIndex, 1);
+                const targetIndex = Math.min(i + maxDistance, this.reviewQueue.length);
+                this.reviewQueue.splice(targetIndex, 0, reversedItem);
+            }
+        },
         // 查看当前队列头（不出队）
         peekCurrent() {
-            console.log("Peeking current word, queue:", this.reviewQueue);
+            // console.log("Peeking current word, queue:", this.reviewQueue);
             if (!this.reviewQueue.length) return null;
             return this.reviewQueue[0] ?? null;
         },
@@ -142,20 +165,20 @@ export const useWordStore = defineStore('word', {
             this.reviewQueue = [];
             this.memoryWindow = [];
             this.activeWordsReversedWordFlagWhenLearn = {};
-            this.activeWordsReversedWordFlagWhenReview = {};
-            this.activeWordsProgressTempWordList = {};
+            this.reviewActiveWordReversedStatusList = {};
+            this.reviewActiveWordStatusList = {};
             this.memoryWindowProgressTempWordList = {};
             this.reviewWordCount = 0;
             this.reviewWordLimitPosition = 0;
         },
         cleanupReviewTemp() {
             // 复习阶段只清理临时状态，不做额外的等级更新
-            this.activeWordsReversedWordFlagWhenReview = {};
-            this.activeWordsProgressTempWordList = {};
+            this.reviewActiveWordReversedStatusList = {};
+            this.reviewActiveWordStatusList = {};
             this.memoryWindowProgressTempWordList = {};
         },
         async updateWordStatus(word: WordItem, toLevel: number | null = null) {
-            console.log("触发词汇状态更新", word, "目标等级：", toLevel);
+            // console.log("触发词汇状态更新", word, "目标等级：", toLevel);
             if (word.__isReversed__) return;
             const id = word.id;
             const wordData = word.word;
@@ -181,7 +204,7 @@ export const useWordStore = defineStore('word', {
                     nextReviewDate = null; // level6 不再复习
             }
 
-            console.log("尝试更新单词状态，id:", id, "word: ", wordData, "新等级:", newLevel, "下次复习日期:", nextReviewDate);
+            // console.log("尝试更新单词状态，id:", id, "word: ", wordData, "新等级:", newLevel, "下次复习日期:", nextReviewDate);
 
             await axiosWrapper.patch('/word/update-level', {
                 id,
@@ -197,18 +220,18 @@ export const useWordStore = defineStore('word', {
             }
         },
         dropFromReviewQueue(word: WordItem) {
-            console.log('词汇被加入记忆创库哦，即将从复习队列中删除的单词：', word);
+            // console.log('词汇被加入记忆创库哦，即将从复习队列中删除的单词：', word);
             this.reviewQueue = this.reviewQueue.filter(w => w.word !== word.word || w.explanation !== word.explanation);
         },
         aRevoirRQ(word: WordItem){
             const newWord = reactive({ ...word }) as WordItem;
             this.dropFromReviewQueue(word);
             this.reviewQueue.push(newWord);
-            console.log("在删掉了原有的单词并添加了这个一样的单词到复习队列末尾之后，当前复习队列：", this.reviewQueue);
+            // console.log("在删掉了原有的单词并添加了这个一样的单词到复习队列末尾之后，当前复习队列：", this.reviewQueue);
         },
         // 记忆窗口控制相关的函数
         async enqueueToWindow(word: WordItem, isNew: Boolean, complex: Boolean = false){
-            console.log(isNew ? "学习新词中" : "复习中");
+            // console.log(isNew ? "学习新词中" : "复习中");
             // 只有通过了词汇队列被踢掉的词汇才认为是记住了，在学习新词的背景下需要修改数据库
             let head = null;
             // 如果是一个word对应多个explanation，那么可以一起存入记忆窗口，动态增加memoryWindowLength
@@ -219,20 +242,20 @@ export const useWordStore = defineStore('word', {
                     this.memoryWindowLength++;
                 }
             }
-            console.log("一个词汇输入记忆窗口是否是结合词汇", complex, "当前memory窗口长度", this.memoryWindow.length, "当前memory窗口最大长度", this.memoryWindowLength);
+            // console.log("一个词汇输入记忆窗口是否是结合词汇", complex, "当前memory窗口长度", this.memoryWindow.length, "当前memory窗口最大长度", this.memoryWindowLength);
             if (this.memoryWindow.length === this.memoryWindowLength) {
                 head = this.memoryWindow.shift();
-                console.log("memory窗口已满，弹出队头的词汇：", head);
+                // console.log("memory窗口已满，弹出队头的词汇：", head);
             }
             const newWord = reactive({ ...word }) as WordItem;
             this.memoryWindow.push(newWord);
 
             if (head && isNew) {
-                console.log("新的词汇学习中，有词汇被顶出记忆窗口")
+                // console.log("新的词汇学习中，有词汇被顶出记忆窗口")
                 if (head.__isReversed__) {
                     this.activeWordsReversedWordFlagWhenLearn[head.explanation] = 1;
                     if (this.activeWordsProgressTempWordListWhenLearn[head.explanation]) {
-                        console.log("之前有记住过这个倒转意义的正向词汇，更新它们的状态，列表：", this.activeWordsProgressTempWordListWhenLearn[head.explanation]);
+                        // console.log("之前有记住过这个倒转意义的正向词汇，更新它们的状态，列表：", this.activeWordsProgressTempWordListWhenLearn[head.explanation]);
                         this.activeWordsProgressTempWordListWhenLearn[head.explanation].forEach(async w => {
                             await this.updateWordStatus(w);
                         });
@@ -244,10 +267,10 @@ export const useWordStore = defineStore('word', {
                             // 临时存入一个列表
                             if (!this.activeWordsProgressTempWordListWhenLearn[head.word]) this.activeWordsProgressTempWordListWhenLearn[head.word] = [];
                             this.activeWordsProgressTempWordListWhenLearn[head.word].push(head);
-                            console.log("之前没有记住过这个词汇的倒转意义，先把这个正向词汇存入临时列表，等待复习过程中如果出现了这个词汇的倒转意义被记住了，再更新它的状态，当前临时列表：", this.activeWordsProgressTempWordListWhenLearn);
+                            // console.log("之前没有记住过这个词汇的倒转意义，先把这个正向词汇存入临时列表，等待复习过程中如果出现了这个词汇的倒转意义被记住了，再更新它的状态，当前临时列表：", this.activeWordsProgressTempWordListWhenLearn);
                         } else {
                             // 已经是1了
-                            console.log("之前已经记住过这个词汇的倒转意义了，更新这个正向词汇的状态，", head);
+                            // console.log("之前已经记住过这个词汇的倒转意义了，更新这个正向词汇的状态，", head);
                             await this.updateWordStatus(head);
                         }
                     } else if (head.type === 'passive') {
@@ -261,7 +284,7 @@ export const useWordStore = defineStore('word', {
         },
         isWindowEnd(){
             const result = this.memoryReviewKey === this.memoryWindow.length;
-            console.log("查看memory窗口是否看完：", result, " (当前的进度是", this.memoryReviewKey, "/ 一共的长度", this.memoryWindow.length, ")");
+            // console.log("查看memory窗口是否看完：", result, " (当前的进度是", this.memoryReviewKey, "/ 一共的长度", this.memoryWindow.length, ")");
             if (result) {
                 this.memoryReviewKey = 0; // 在比较的时候就做好重置，让指针回到队头
                 this.memoryWindowProgressTempWordList = {}; // 每轮复习结束，重置临时列表
@@ -280,34 +303,35 @@ export const useWordStore = defineStore('word', {
             this.memoryWindow = this.memoryWindow.filter(w => !(w.word === word.word && w.explanation === word.explanation));
             this.memoryWindowLength = Math.max(5, this.memoryWindowLength - 1);
 
-            console.log("从临时memoryWindowProgressTempWordList队列里移除");
+            // console.log("从临时memoryWindowProgressTempWordList队列里移除");
             if (this.memoryWindowProgressTempWordList[word.word]) {
                 this.memoryWindowProgressTempWordList[word.word] = this.memoryWindowProgressTempWordList[word.word].filter(w => w.explanation !== word.explanation);
                 if (this.memoryWindowProgressTempWordList[word.word].length === 0) {
                     delete this.memoryWindowProgressTempWordList[word.word];
                 }
-                console.log("当前临时列表：", this.memoryWindowProgressTempWordList);
+                // console.log("当前临时列表：", this.memoryWindowProgressTempWordList);
             }
         },
         async updateRestMemory(){
+            const updateTasks: Array<Promise<void>> = [];
+
             if (this.memoryWindow.length > 0) {
-                this.memoryWindow.forEach(async word => {
-                    await this.updateWordStatus(word);
-                })
+                updateTasks.push(...this.memoryWindow.map(word => this.updateWordStatus(word)));
             }
+
             if (!!this.activeWordsProgressTempWordListWhenLearn) {
                 for (const key in this.activeWordsProgressTempWordListWhenLearn) {
                     const wordList = this.activeWordsProgressTempWordListWhenLearn[key];
                     if (wordList && wordList.length > 0) {
-                        for (const word of wordList) {
-                            await this.updateWordStatus(word);
-                        }
+                        updateTasks.push(...wordList.map(word => this.updateWordStatus(word)));
                     }
                 }
             }
+
+            await Promise.all(updateTasks);
         },
         findWord(word: string, type: 'active' | 'passive') {
-            return this.words.find(w => w.word === word && w.type === type);
+            return this.words.find(w => w.word.toLowerCase() === word.toLowerCase() && w.type === type);
         }
     }
 });

@@ -14,10 +14,10 @@
                                 </v-sheet>
                             </div>
                             <v-card-actions>
-                                <v-btn color="light-green-darken-4" @click="ajouter">
+                                <v-btn color="light-green-darken-4" @click="ajouter" :disabled="alertStore.loading">
                                     Ajouter quand même
                                 </v-btn>
-                                <v-btn color="success" @click="rajouterOverlay = false">
+                                <v-btn color="success" @click="rajouterOverlay = false" :disabled="alertStore.loading">
                                     Annuler
                                 </v-btn>
                             </v-card-actions>
@@ -58,7 +58,7 @@
                                     </div>
                                     <transition name="fly-in-left">
                                         <div style="display: inline-block;" v-show="type && rectoText && versoText">
-                                            <v-btn @click="handleAjouter" rounded="xl" size="small" color="black">ajouter</v-btn>
+                                            <v-btn @click="handleAjouter" rounded="xl" size="small" color="black" :disabled="alertStore.loading">ajouter</v-btn>
                                         </div>
                                     </transition>
                                 </div>
@@ -85,7 +85,7 @@
             </v-col>
             <v-col cols="12" md="4" class="pa-2">
                 <div v-if="currCard.length > 0">
-                    <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab">Back</v-btn>
+                    <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
 
                     <wordCard 
                     :cardType="cardCurrType"
@@ -107,34 +107,34 @@
                         <v-window-item value="a">
                             <v-card class="pa-5">
                                 <div v-if="wordStore && wordStore.activeWordsStruct.wordsToLearnCount > 0">
-                                    <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " mots" }} </StartButton>
+                                    <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " mots" }} </StartButton>
                                 </div>
                                 <div v-else>
-                                    <StartButton preIcon="mdi-pen" color="grey">Pas de nouveaux mots</StartButton>
+                                    <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">Pas de nouveaux mots</StartButton>
                                 </div>
 
                                 <div v-if="wordStore && wordStore.activeWordsStruct.wordsToReviewCount > 0">
-                                    <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3">A REVISER: {{ wordStore.activeWordsStruct.wordsToReviewCount + " mots" }} </StartButton>
+                                    <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">A REVISER: {{ wordStore.activeWordsStruct.wordsToReviewCount + " mots" }} </StartButton>
                                 </div>
                                 <div v-else>
-                                    <StartButton preIcon="mdi-refresh" color="grey">Pas de mots à réviser</StartButton>
+                                    <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">Pas de mots à réviser</StartButton>
                                 </div>
                             </v-card>
                         </v-window-item>
                         <v-window-item value="p">
                             <v-card class="pa-5">
                                 <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToLearnCount > 0">
-                                    <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " mots" }} </StartButton>
+                                    <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " mots" }} </StartButton>
                                 </div>
                                 <div v-else>
-                                    <StartButton preIcon="mdi-pen" color="grey">Pas de nouveaux mots</StartButton>
+                                    <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">Pas de nouveaux mots</StartButton>
                                 </div>
 
                                 <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToReviewCount > 0">
-                                    <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3">A REVISER: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " mots" }} </StartButton>
+                                    <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">A REVISER: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " mots" }} </StartButton>
                                 </div>
                                 <div v-else>
-                                    <StartButton preIcon="mdi-refresh" color="grey">Pas de mots à réviser</StartButton>
+                                    <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">Pas de mots à réviser</StartButton>
                                 </div>
                             </v-card>
                         </v-window-item>
@@ -148,7 +148,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { useDisplay } from 'vuetify';
-import { useWordStore } from '@/stores';
+import { useWordStore, useAlertStore } from '@/stores';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
 import { axiosWrapper } from '../utilities/axios-wrapper';
@@ -166,6 +166,7 @@ const reversedWordFlag = ref(false);
 const { mdAndUp: isDesktop } = useDisplay();
 
 let wordStore = null;
+let alertStore = null;
 
 let reviewWordLength = 0;
 
@@ -183,20 +184,29 @@ async function handleAjouter() {
 }
 
 async function ajouter(){
-    await wordStore.addWord({
-        word: rectoText.value,
-        explanation: versoText.value,
-        type: type.value,
-        word_group: 1
-    });
-    rajouterOverlay.value = false;
-    rectoText.value = "";
-    versoText.value = "";
-    type.value = "active";
+    if (wordStore === null || alertStore === null) return;
+
+    alertStore.setLoading(true);
+    try {
+        await wordStore.addWord({
+            word: rectoText.value,
+            explanation: versoText.value,
+            type: type.value,
+            word_group: 1
+        });
+        rajouterOverlay.value = false;
+        rectoText.value = "";
+        versoText.value = "";
+        type.value = "active";
+    } finally {
+        alertStore.setLoading(false);
+    }
 }
 
 async function initReviewQueue(type) {
-    if (wordStore !== null && typeof type === 'string' && type.match(/^(active|passive),(new|review)$/)) {
+    if (wordStore !== null && alertStore !== null && typeof type === 'string' && type.match(/^(active|passive),(new|review)$/)) {
+        alertStore.setLoading(true);
+        try {
         // 卡片类型会变的（在review中两种都会出现，但是学习新词时只能是learn），所以分开管理
         cardCurrType.value = type.split(',')[1] === 'new' ? 'learn' : 'review';
         learnStatus.value = type.split(',')[1];
@@ -207,17 +217,22 @@ async function initReviewQueue(type) {
         
         currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
         wordStore.reviewWordCount = 0;
+
+        console.log("初始化复习队列，当前的review队列：", wordStore.reviewQueue, "当前要展示的词汇是", currCard);
+        } finally {
+            alertStore.setLoading(false);
+        }
     }
 }
 
 async function nextCard() {
-    console.log("进入nextCard");
+    // console.log("进入nextCard");
     if (wordStore !== null) {
         // review模式在末尾会切换成learn模式
         if (cardCurrType.value === 'review') {
             // console.log("复习队列已复习单词数量：", wordStore.reviewWordCount, "/", reviewWordLength);
             if (cardCurrType.value === 'review' && wordStore.reviewWordCount >= reviewWordLength) {
-                console.log("复习队列单词已全部复习，切换到learn模式");
+                // console.log("复习队列单词已全部复习，切换到learn模式");
                 cardCurrType.value = 'learn';
             }
         }
@@ -233,14 +248,14 @@ async function nextCard() {
                 if (wordStore.isWindowEnd()) {
                     // console.log("memory窗口看完了，继续看word队列，这个时候下一个词汇是从word队列里取出：");
                     nextWord = wordStore.peekCurrent();
-                    if (!nextWord) closeCard();
+                    if (!nextWord) await closeCard();
                     else currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
                 }
                 else {
                     // 如果取出的词汇在前面有同样的word，那么在前面已经看过的部分肯定一起展示了这个当前的词汇，需要跳过本次nextCard
                     nextWord = wordStore.peekMemory();
                     if (wordStore.memoryWindowProgressTempWordList[nextWord.word] && wordStore.memoryWindowProgressTempWordList[nextWord.word].some(w => w.explanation === nextWord.explanation)){
-                        console.log("这个词汇之前复习过了，跳过")
+                        // console.log("这个词汇之前复习过了，跳过")
                         await nextCard();
                         return;
                     }
@@ -249,7 +264,7 @@ async function nextCard() {
             } else {
                 // console.log("learn模式下但window空了，直接从word队列里取出单词：");
                 nextWord = wordStore.peekCurrent();
-                if (!nextWord) closeCard();
+                if (!nextWord) await closeCard();
                 else currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
             }
         }
@@ -257,7 +272,7 @@ async function nextCard() {
             // console.log("当前卡片类型是review，不需要window队列");
             nextWord = wordStore.peekCurrent();
             // console.log("[review]阶段，从review队列取出的下一个词汇：", nextWord, "当前的review队列：", wordStore.reviewQueue);
-            if (!nextWord) closeCard();
+            if (!nextWord) await closeCard();
             else {
                 const showWords = await conbineShowWords(nextWord, wordStore.reviewQueue);
                 // console.log("[review]阶段，合并展示的词汇：", showWords);
@@ -280,15 +295,26 @@ async function nextCard() {
 async function conbineShowWords(motherWord, currentQueue){
     // 查询所有与motherWord有相同word或者explanation的词汇，然后输出一个数组用于渲染，在后端还要先判断原词汇还是倒转词汇
     // 后端查到的，不在现在的渲染列表里的词汇都是直接prochain，不用交互
-    const allRelatedWords = await axiosWrapper.get(`/word/related?word=${motherWord.word}&explanation=${motherWord.explanation}`);
-    // console.log("[合并词汇中] 查询到的所有相关词汇：", allRelatedWords);
+    let allRelatedWords;
+    
+    if (!motherWord.__isReversed__) {
+        allRelatedWords = await axiosWrapper.get(`/word/related?id=${motherWord.id}`);
+        console.log("[合并词汇中] 查询到的所有相关词汇：", allRelatedWords);
+    } else {
+        console.log("词汇是倒转词，不需要查询相关词汇");
+        allRelatedWords = {
+            wordtype: 'reversed',
+            relatedWords: [motherWord]
+        };
+    }
     // wordStore.word里有的词汇都属于needBtn = true的词汇，说明他们是现在需要复习的词汇，其他的都不需要
     const { wordtype, relatedWords }  = allRelatedWords;
 
-    reversedWordFlag.value = wordtype === 'reversed';
-    if (!motherWord.__isReversed__) motherWord.__isReversed__ = reversedWordFlag.value; // 给母词打上是否倒转的标签，方便后续判断
+    const isReversed = motherWord.__isReversed__;
+    reversedWordFlag.value = !!isReversed;
 
-    if (wordtype === 'original') {
+    if (!isReversed) {
+        console.log("[合并词汇中] 不是倒转词，当前队列：", currentQueue, "待合并的相关词汇：", relatedWords);
         const showWords = relatedWords.map(word => {
             const inCurrentStore = currentQueue.find(w => w.word === word.word && w.explanation === word.explanation); // 只要word和explanation都相同就行，不管有没有倒转，就可以说明这个词汇是否正在被访问
             return {
@@ -310,33 +336,44 @@ async function conbineShowWords(motherWord, currentQueue){
     }
 }
 
-function backToTab() {
+async function backToTab() {
     currCard.value = [];
     reviewWordLength = 0;
     wordStore.reviewWordCount = 0;
     cardCurrType.value = "";
     learnStatus.value = "";
 
-    if (wordStore !== null) {
-        wordStore.resetQueue();
-        wordStore.fetchWords();
+    if (wordStore !== null && alertStore !== null) {
+        alertStore.setLoading(true);
+        try {
+            wordStore.resetQueue();
+            await wordStore.fetchWords();
+        } finally {
+            alertStore.setLoading(false);
+        }
     }
 }
 
-function closeCard() {
-    if (learnStatus.value === 'new') {
-        // 学习新词：需要把记忆窗口中剩余未处理的词汇做一次集中更新
-        wordStore.updateRestMemory();
-    } else {
-        wordStore.cleanupReviewTemp();
-    }
+async function closeCard() {
+    if (alertStore !== null) alertStore.setLoading(true);
+    try {
+        if (learnStatus.value === 'new') {
+            // 学习新词：需要把记忆窗口中剩余未处理的词汇做一次集中更新
+            await wordStore.updateRestMemory();
+        } else {
+            wordStore.cleanupReviewTemp();
+        }
 
-    backToTab();
+        await backToTab();
+    } finally {
+        if (alertStore !== null) alertStore.setLoading(false);
+    }
 }
 
 onMounted(() => {
     wordStore = useWordStore();
     wordStore.fetchWords();
+    alertStore = useAlertStore();
 })
 </script>
 
