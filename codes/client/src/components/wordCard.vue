@@ -4,13 +4,18 @@
             <v-card-text>
                 <div class="card-content">
                     <div style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center;">
-                        <ol>
+                        <ol v-if="shouldUseOrderedList">
                             <li v-for="(item, index) in rectos" :key="index">
-                                <p class="text-center" style="height: auto; font-size: 1.2rem; line-height: 1.6rem;">
+                                <p class="text-center preserve-breaks" style="height: auto; font-size: 1.2rem; line-height: 1.6rem;">
                                     {{ item.word || item }}
                                 </p>
                             </li>
                         </ol>
+                        <div v-else>
+                            <p class="text-center preserve-breaks" style="height: auto; font-size: 1.2rem; line-height: 1.6rem;">
+                                {{ rectos[0]?.word || rectos[0] || '' }}
+                            </p>
+                        </div>
                     </div>
                     <div style="width: 90%">
                         <v-divider class="my-4 solid-divider" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
@@ -39,7 +44,7 @@
                                     <div class="d-flex mx-2" style="width: 100%; height: 100%;">
                                         <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
                                             <div style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
-                                                <p class="text-medium-emphasis mb-4 pl-1" style="font-size: 1.1rem; line-height: 1.2rem;">
+                                                <p class="text-medium-emphasis mb-4 pl-1 preserve-breaks" style="font-size: 1.1rem; line-height: 1.2rem;">
                                                     {{ item.explanation }}
                                                 </p>
                                             </div>
@@ -65,7 +70,7 @@
                                     <div class="d-flex mx-2" style="width: 100%; height: 100%;">
                                     <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
                                         <div style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
-                                            <p class="text-medium-emphasis mb-4 pl-1" style="font-size: 1.1rem; line-height: 1.2rem;">
+                                            <p class="text-medium-emphasis mb-4 pl-1 preserve-breaks" style="font-size: 1.1rem; line-height: 1.2rem;">
                                                 {{ props.word[0].explanation }}
                                             </p>
                                         </div>
@@ -127,7 +132,7 @@ const props = defineProps({
 const rectos = computed(() => {
     // 检查word列表里每个项的word属性是否相同，如果相同则只保留第一个，否则保留所有
     if (props.reversedWord) {
-        return props.word[0].word.split(' / ');
+        return props.word[0].word.split(' %/% ');
     }
 
     const seenWords = new Set();
@@ -141,8 +146,17 @@ const rectos = computed(() => {
     });
 })
 
+const isLoadingPlaceholder = computed(() => {
+    return props.word.length === 1 && props.word[0].word === 'Chargement...';
+});
+
+const shouldUseOrderedList = computed(() => {
+    return !isLoadingPlaceholder.value && rectos.value.length > 1;
+});
+
 const versos = computed(() => {
     const seenExplanations = new Set();
+    console.log("计算versos，当前的word列表：", props.word);
     return props.word.filter(item => {
         if (seenExplanations.has(item.explanation)) {
             return false;
@@ -156,6 +170,11 @@ const versos = computed(() => {
 watch(
     () => props.word,
     (newVal, oldVal) => {
+        if (isLoadingPlaceholder.value) {
+            verso.value = false;
+            return;
+        }
+
         let needNext = true;
         props.word.forEach((item, index) => {
             if (item.__needBtn__) {
@@ -217,7 +236,7 @@ function getActiveBaseWord(item) {
 }
 
 function getForwardKey(word, explanation) {
-    return `${word} / ${explanation}`;
+    return `${word} %/% ${explanation}`;
 }
 
 function markActiveReviewStatus(item, status) {
@@ -343,5 +362,9 @@ async function reviewOublie(item) {
 
 .hide-scroll-bar::-webkit-scrollbar {
     display: none;
+}
+
+.preserve-breaks {
+    white-space: pre-line;
 }
 </style>

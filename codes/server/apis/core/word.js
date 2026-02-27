@@ -49,30 +49,4 @@ router.patch('/update-level', async (req, res) => {
     res.json({ message: 'Word level updated successfully' });
 })
 
-router.get('/related', async (req, res) => {
-    const { id } = req.query;
-
-    let result;
-    
-    const relatedSql = `SELECT id, word, explanation, type, level,
-    DATE_FORMAT(next_review_date, '%Y-%m-%d') as next_review_date, 
-    DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
-    word_group
-    FROM words WHERE id = ?`;
-
-    try {
-        result = await connection.execute('vocab_profiler_db', relatedSql, [id]);
-    } catch (error) {
-        return res.status(500).json({ error: 'Failed to fetch related words' });
-    }
-
-    result.forEach((val, idx, arr) => {
-        arr[idx].needBtn = true;
-    });
-
-    res.json({'wordtype': 'original', 'relatedWords': result});
-
-    res.end();
-});
-
 module.exports = router;

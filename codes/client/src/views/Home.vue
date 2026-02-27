@@ -4,13 +4,13 @@
             <v-col cols="12" md="8" class="pa-0">
                 <div id="left-bg" class="position-relative">
                     <v-overlay v-model="rajouterOverlay" class="align-center d-flex justify-center" contained>
-                        <v-card max-width="60vw">
+                        <v-card max-width="90vw">
                             <v-card-title style="font-size: 20px; color: grey;">"{{ rectoText }}" existe déjà.</v-card-title>
                             <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
-                                <v-sheet v-for="(item, index) in wordStore.words.filter(word => word.word === rectoText && word.type === type)" :key="index" width="15vw" height="25vh" class="flex-shrink-0">
+                                <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="15vw" height="25vh" class="flex-shrink-0">
                                     <p>{{ index + 1 }}</p>
                                     <v-divider :thickness="1" color="info" class="my-2"></v-divider>
-                                    <p>{{ item.explanation }}</p>
+                                    <p class="preserve-breaks">{{ item.explanation }}</p>
                                 </v-sheet>
                             </div>
                             <v-card-actions>
@@ -57,7 +57,7 @@
                                         </v-radio-group>
                                     </div>
                                     <transition name="fly-in-left">
-                                        <div style="display: inline-block;" v-show="type && rectoText && versoText">
+                                        <div style="display: inline-block;" v-show="type && normalizedRectoText && normalizedVersoText">
                                             <v-btn @click="handleAjouter" rounded="xl" size="small" color="black" :disabled="alertStore.loading">ajouter</v-btn>
                                         </div>
                                     </transition>
@@ -146,12 +146,11 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useWordStore, useAlertStore } from '@/stores';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
-import { axiosWrapper } from '../utilities/axios-wrapper';
 
 const type = ref("active");
 const rectoText = ref("");
@@ -165,32 +164,38 @@ const reversedWordFlag = ref(false);
 
 const { mdAndUp: isDesktop } = useDisplay();
 
-let wordStore = null;
-let alertStore = null;
+const wordStore = useWordStore();
+const alertStore = useAlertStore();
+
+function normalizeInputChunk(value) {
+    return wordStore.normalizeInputText(value);
+}
+
+const normalizedRectoText = computed(() => normalizeInputChunk(rectoText.value));
+const normalizedVersoText = computed(() => normalizeInputChunk(versoText.value));
+const duplicateWords = computed(() => wordStore.findWords(normalizedRectoText.value, type.value));
 
 let reviewWordLength = 0;
 
 async function handleAjouter() {
-    if (wordStore !== null) {
-        // 确认词汇存在与否，如果已存在，就询问是否重复添加
-        const existingWord = wordStore.findWord(rectoText.value, type.value);
-        if (existingWord) {
-            rajouterOverlay.value = true;
-        }
-        else {
-            await ajouter();
-        }
+    if (!normalizedRectoText.value || !normalizedVersoText.value) return;
+    // 确认词汇存在与否，如果已存在，就询问是否重复添加
+    const existingWord = wordStore.findWord(normalizedRectoText.value, type.value);
+    if (existingWord) {
+        rajouterOverlay.value = true;
+    }
+    else {
+        await ajouter();
     }
 }
 
 async function ajouter(){
-    if (wordStore === null || alertStore === null) return;
-
+    if (!normalizedRectoText.value || !normalizedVersoText.value) return;
     alertStore.setLoading(true);
     try {
         await wordStore.addWord({
-            word: rectoText.value,
-            explanation: versoText.value,
+            word: normalizedRectoText.value,
+            explanation: normalizedVersoText.value,
             type: type.value,
             word_group: 1
         });
@@ -204,7 +209,7 @@ async function ajouter(){
 }
 
 async function initReviewQueue(type) {
-    if (wordStore !== null && alertStore !== null && typeof type === 'string' && type.match(/^(active|passive),(new|review)$/)) {
+    if (typeof type === 'string' && type.match(/^(active|passive),(new|review)$/)) {
         alertStore.setLoading(true);
         try {
         // 卡片类型会变的（在review中两种都会出现，但是学习新词时只能是learn），所以分开管理
@@ -218,7 +223,7 @@ async function initReviewQueue(type) {
         currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
         wordStore.reviewWordCount = 0;
 
-        console.log("初始化复习队列，当前的review队列：", wordStore.reviewQueue, "当前要展示的词汇是", currCard);
+        // console.log("初始化复习队列，当前的review队列：", wordStore.reviewQueue, "当前要展示的词汇是", currCard);
         } finally {
             alertStore.setLoading(false);
         }
@@ -227,7 +232,21 @@ async function initReviewQueue(type) {
 
 async function nextCard() {
     // console.log("进入nextCard");
-    if (wordStore !== null) {
+    alertStore.setLoading(true);
+    currCard.value = [{
+        id: -1,
+        word: "Chargement...",
+        explanation: "",
+        type: "active",
+        level: 0,
+        next_review_date: null,
+        created_at: "",
+        word_group: 1,
+        __needBtn__: true,
+        __isReversed__: false,
+        __loadingPlaceholder__: true,
+    }];
+    try {
         // review模式在末尾会切换成learn模式
         if (cardCurrType.value === 'review') {
             // console.log("复习队列已复习单词数量：", wordStore.reviewWordCount, "/", reviewWordLength);
@@ -287,6 +306,8 @@ async function nextCard() {
                 currCard.value = showWords;
             }
         }
+    } finally {
+        alertStore.setLoading(false);
     }
 }
 
@@ -295,26 +316,22 @@ async function nextCard() {
 async function conbineShowWords(motherWord, currentQueue){
     // 查询所有与motherWord有相同word或者explanation的词汇，然后输出一个数组用于渲染，在后端还要先判断原词汇还是倒转词汇
     // 后端查到的，不在现在的渲染列表里的词汇都是直接prochain，不用交互
-    let allRelatedWords;
+    // console.log("[合并词汇中] 当前母词：", motherWord, "当前队列：", currentQueue);
+    let relatedWords;
     
     if (!motherWord.__isReversed__) {
-        allRelatedWords = await axiosWrapper.get(`/word/related?id=${motherWord.id}`);
-        console.log("[合并词汇中] 查询到的所有相关词汇：", allRelatedWords);
+        relatedWords = wordStore.findRelatedWordsById(motherWord.id);
+        // console.log("[合并词汇中] 本地查询到的所有相关词汇：", relatedWords);
     } else {
-        console.log("词汇是倒转词，不需要查询相关词汇");
-        allRelatedWords = {
-            wordtype: 'reversed',
-            relatedWords: [motherWord]
-        };
+        // console.log("词汇是倒转词，不需要查询相关词汇");
+        relatedWords = [motherWord];
     }
-    // wordStore.word里有的词汇都属于needBtn = true的词汇，说明他们是现在需要复习的词汇，其他的都不需要
-    const { wordtype, relatedWords }  = allRelatedWords;
 
     const isReversed = motherWord.__isReversed__;
     reversedWordFlag.value = !!isReversed;
 
     if (!isReversed) {
-        console.log("[合并词汇中] 不是倒转词，当前队列：", currentQueue, "待合并的相关词汇：", relatedWords);
+        // console.log("[合并词汇中] 不是倒转词，当前队列：", currentQueue, "待合并的相关词汇：", relatedWords);
         const showWords = relatedWords.map(word => {
             const inCurrentStore = currentQueue.find(w => w.word === word.word && w.explanation === word.explanation); // 只要word和explanation都相同就行，不管有没有倒转，就可以说明这个词汇是否正在被访问
             return {
@@ -343,19 +360,17 @@ async function backToTab() {
     cardCurrType.value = "";
     learnStatus.value = "";
 
-    if (wordStore !== null && alertStore !== null) {
-        alertStore.setLoading(true);
-        try {
-            wordStore.resetQueue();
-            await wordStore.fetchWords();
-        } finally {
-            alertStore.setLoading(false);
-        }
+    alertStore.setLoading(true);
+    try {
+        wordStore.resetQueue();
+        await wordStore.fetchWords();
+    } finally {
+        alertStore.setLoading(false);
     }
 }
 
 async function closeCard() {
-    if (alertStore !== null) alertStore.setLoading(true);
+    alertStore.setLoading(true);
     try {
         if (learnStatus.value === 'new') {
             // 学习新词：需要把记忆窗口中剩余未处理的词汇做一次集中更新
@@ -366,14 +381,12 @@ async function closeCard() {
 
         await backToTab();
     } finally {
-        if (alertStore !== null) alertStore.setLoading(false);
+        alertStore.setLoading(false);
     }
 }
 
 onMounted(() => {
-    wordStore = useWordStore();
     wordStore.fetchWords();
-    alertStore = useAlertStore();
 })
 </script>
 
@@ -400,6 +413,10 @@ onMounted(() => {
 
 .hide-scroll-bar::-webkit-scrollbar {
     display: none;
+}
+
+.preserve-breaks {
+    white-space: pre-line;
 }
 
 #verso-title {

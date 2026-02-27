@@ -23,6 +23,9 @@ export const useWordStore = defineStore('word', {
         reviewActiveWordReversedStatusList: {} as Record<string, number>,
     }),
     actions: {
+        normalizeInputText(value: string) {
+            return (value ?? '').replace(/\r\n/g, '\n').trim();
+        },
         async fetchWords(group: number = 1) {
             this.words = await axiosWrapper.get<WordList>(`/word/list?group=${group}`);
             // needBtn是前端控制的属性，默认全部为true
@@ -30,11 +33,17 @@ export const useWordStore = defineStore('word', {
             this.rangeWords();
         },
         async addWord(payload: WordPayload) {
-            const newId = await axiosWrapper.post<number>('/word/add', payload);
+            const normalizedPayload = {
+                ...payload,
+                word: this.normalizeInputText(payload.word),
+                explanation: this.normalizeInputText(payload.explanation),
+            };
+
+            const newId = await axiosWrapper.post<number>('/word/add', normalizedPayload);
 
             this.words.push({
                 id: newId,
-                ...payload,
+                ...normalizedPayload,
                 level: 0,
                 next_review_date: null,
                 created_at: dayjs().format('YYYY-MM-DD HH:mm:ss'),
@@ -86,46 +95,57 @@ export const useWordStore = defineStore('word', {
         getCandidates(type: 'active' | 'passive', mode: 'new' | 'review'): WordList {
             const struct = type === 'active' ? (this.activeWordsStruct as any) : (this.passiveWordsStruct as any);
             if (!struct) return [];
-            const candidates = mode === 'new' ? (struct.wordsToLearn || []) : (struct.wordsToReview || []);
-            if (type === 'active') {
-                const reverseCandidates = candidates.map((word: WordItem) => {
-                    const raw = toRaw(word);
-                    const tempWord = reactive({ ...raw }) as WordItem;
-                    const temp = tempWord.word;
-                    tempWord.word = raw.explanation;
-                    tempWord.explanation = temp;
-                    tempWord.__isReversed__ = true;
-                    return tempWord;
-                });
-                // 合并所有的，word有多个，解释只有一个，的倒转词汇，这个时候reverseCandidates里有多个项，explanation相同，需要合并word
-                let reverseCandidatesReduced = [] as WordList;
-                reverseCandidates.forEach((word: WordItem) => {
-                    const existing = reverseCandidatesReduced.find(w => w.explanation === word.explanation);
-                    if (existing) {
-                        existing.word += ` / ${word.word}`;
-                    } else {
-                        reverseCandidatesReduced.push(word);
+            return mode === 'new' ? (struct.wordsToLearn || []) : (struct.wordsToReview || []);
+        },
+        buildActiveReverseCandidates(candidates: WordList): WordList {
+            const reverseCandidates = candidates.map((word: WordItem) => {
+                const raw = toRaw(word);
+                const tempWord = reactive({ ...raw }) as WordItem;
+                const temp = tempWord.word;
+                tempWord.word = raw.explanation;
+                tempWord.explanation = temp;
+                tempWord.__isReversed__ = true;
+                return tempWord;
+            });
+
+            // 合并所有的，word有多个，解释只有一个，的倒转词汇，这个时候reverseCandidates里有多个项，explanation相同，需要合并word
+            let reverseCandidatesReduced = [] as WordList;
+            reverseCandidates.forEach((word: WordItem) => {
+                const existing = reverseCandidatesReduced.find(w => w.explanation === word.explanation);
+                if (existing) {
+                    existing.word += ` %/% ${word.word}`;
+                } else {
+                    reverseCandidatesReduced.push(word);
+                }
+            })
+
+            // 补上仓库中有的但是现在不用复习的，因此没有算计你去的那些解释到word里
+            this.words.forEach(word => {
+                if (word.type === 'active') {
+                    const existing = reverseCandidatesReduced.find(w => w.explanation === word.word);
+                    if (existing && !existing.word.split(' %/% ').includes(word.explanation)) {
+                        existing.word += ` %/% ${word.explanation}`;
                     }
-                })
-                // 补上仓库中有的但是现在不用复习的，因此没有算计你去的那些解释到word里
-                this.words.forEach(word => {
-                    if (word.type === 'active') {
-                        const existing = reverseCandidatesReduced.find(w => w.explanation === word.word);
-                        if (existing && !existing.word.split(' / ').includes(word.explanation)) {
-                            existing.word += ` / ${word.explanation}`;
-                        }
-                    }
-                })
-                // console.log([...candidates, ...reverseCandidatesReduced])
-                return [...candidates, ...reverseCandidatesReduced];
-            } else return candidates
+                }
+            })
+
+            return reverseCandidatesReduced;
         },
         // 初始化背诵队列：筛选 + 随机打乱 + 游标归零
         initReviewQueue(type: 'active' | 'passive', mode: 'new' | 'review') {
             // 确保分组结构是最新的
             this.rangeWords();
             const candidates = this.getCandidates(type, mode);
-            const thisTurnWords = this.shuffle(candidates).slice(0, 20);
+            let thisTurnWords = [] as WordList;
+
+            if (type === 'active') {
+                const forwardCandidates = this.shuffle(candidates).slice(0, 10);
+                const reverseCandidates = this.buildActiveReverseCandidates(forwardCandidates);
+                thisTurnWords = this.shuffle([...forwardCandidates, ...reverseCandidates]);
+            } else {
+                thisTurnWords = this.shuffle(candidates).slice(0, 20);
+            }
+
             this.reviewQueue = thisTurnWords;
             this.adapteActiveWordReversedWordOrder();
             this.activeWordsReversedWordFlagWhenLearn = {};
@@ -330,8 +350,22 @@ export const useWordStore = defineStore('word', {
 
             await Promise.all(updateTasks);
         },
+        findRelatedWordsById(id: number) {
+            const motherWord = this.words.find(w => w.id === id);
+            if (!motherWord) return [] as WordList;
+
+            return this.words.filter(w =>
+                w.word === motherWord.word &&
+                w.type === motherWord.type &&
+                w.word_group === motherWord.word_group
+            );
+        },
+        findWords(word: string, type: 'active' | 'passive') {
+            const normalizedWord = this.normalizeInputText(word).toLowerCase();
+            return this.words.filter(w => this.normalizeInputText(w.word).toLowerCase() === normalizedWord && w.type === type);
+        },
         findWord(word: string, type: 'active' | 'passive') {
-            return this.words.find(w => w.word.toLowerCase() === word.toLowerCase() && w.type === type);
+            return this.findWords(word, type)[0];
         }
     }
 });
