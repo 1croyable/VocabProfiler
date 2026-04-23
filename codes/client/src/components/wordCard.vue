@@ -156,7 +156,7 @@ const shouldUseOrderedList = computed(() => {
 
 const versos = computed(() => {
     const seenExplanations = new Set();
-    console.log("计算versos，当前的word列表：", props.word);
+
     return props.word.filter(item => {
         if (seenExplanations.has(item.explanation)) {
             return false;
@@ -196,27 +196,17 @@ watch(
 async function learnRetenu(item) {
     alertStore.setLoading(true);
     try {
-    // console.log(item.word, "被点击")
-    // 针对 位于词汇队列中的词汇和位于记忆队列中的词汇有不同的操作
-    const index = wordStore.reviewQueue.findIndex(w => w.id === item.id && w.word === item.word);
-    if (index !== -1) {
-        // console.log("词汇位于词汇队列，位置索引：", index, "于是将word队列的这个词汇提出到记忆窗口");
-        // 词汇位于词汇队列
-        // 踢出词汇队列
-        wordStore.dropFromReviewQueue(item);
-        // 但凡是双选界面，就是在学习/复习，都要加入 memoryWindow
-        await wordStore.enqueueToWindow(item, props.learnStatus === 'new', versos.value.length > 1); // 根据学习新词还是复习词汇中的learn有不同的处理，如果是学习新词，需要更新词汇的数据库状态，如果是复习词汇，则只需踢出队列
-        // console.log("这个词汇位于词汇队列，点击了记住了，提出到记忆窗口，当前记忆窗口：", wordStore.memoryWindow);
-    } else {
-        // 位于记忆队列，点击确定后加入临时状态
-        if (versos.value.length > 1) {
-            wordStore.memoryWindowProgressTempWordList[item.word] = wordStore.memoryWindowProgressTempWordList[item.word] || [];
-            wordStore.memoryWindowProgressTempWordList[item.word].push(item);
-            // console.log("这个词汇位于记忆队列，点击了记住了，加入临时状态，当前这个词汇的临时状态列表：", wordStore.memoryWindowProgressTempWordList[item.word]);
+        const index = wordStore.reviewQueue.findIndex(w => w.id === item.id && w.word === item.word);
+        if (index !== -1) {
+            wordStore.dropFromReviewQueue(item);
+            await wordStore.enqueueToWindow(item, props.learnStatus === 'new', versos.value.length > 1);
+        } else {
+            if (versos.value.length > 1) {
+                wordStore.memoryWindowProgressTempWordList[item.word] = wordStore.memoryWindowProgressTempWordList[item.word] || [];
+                wordStore.memoryWindowProgressTempWordList[item.word].push(item);
+            }
         }
-    }
-    // console.log("加载下一张卡片，如果不位于词汇队列，但是刚才又复习到了，说明在记忆队列，直接加载下一个，不用处理队列");
-    item.__needBtn__ = false;
+        item.__needBtn__ = false;
     } finally {
         alertStore.setLoading(false);
     }
@@ -225,7 +215,7 @@ async function learnRetenu(item) {
 function ARevoir(item) {
     // 也要根据位于词汇队列还是记忆队列区分
     const index = wordStore.reviewQueue.findIndex(w => w.id === item.id && w.word === item.word);
-    if (index !== -1) wordStore.aRevoirRQ(item);
+    if (index !== -1) wordStore.putToReviewQueue(item);
     else wordStore.aRevoirMQ(item);
 
     item.__needBtn__ = false;
@@ -273,12 +263,6 @@ async function applyActiveWorstStatusIfReady(item) {
 }
 
 async function reviewMatriser(item) {
-    /*
-        这里的问题是，如果这个单词是active的，那么掌握的标准应该是双向都记住
-        我们不能通过单纯的id进行判断是否记住了背面，因为比如出现3个单词的word都是相同的但是又3个不同的个解释，那么就会出现混淆
-        解决的办法是：不论什么时候复习到倒转意义，如果记住了，就标记为1，表示记住了反过来的解释，这个第一次时候直接把之前所有记住过的正向词汇更新状态
-        并且在之后的所有正向词汇被记住时都直接更新状态
-    */
     if (wordStore !== null) {
         alertStore.setLoading(true);
         try {
@@ -290,7 +274,6 @@ async function reviewMatriser(item) {
             }
 
             wordStore.dropFromReviewQueue(item);
-            console.log("点击了掌握了，提出这个词汇，当前的队列有这么多个：", wordStore.reviewQueue.length);
             wordStore.reviewWordLimitPosition --;
             wordStore.reviewWordCount += 1;
             item.__needBtn__ = false;
@@ -301,9 +284,6 @@ async function reviewMatriser(item) {
 }
 
 async function reviewFlou(item) {
-    // 正向词和反向词但凡有一个选择了flou，那么就算flou，就算另一个是掌握，也算是flou；但是如果另一个是忘记，那么就算忘记，按照最差的情况来
-    // 而且又要兼顾一个正向词对应多个意思，这样的时候反向词是只有一个，但正向词会有多个意义对应每一个都会被选择，使用一个reviewWordStatusList记录状态
-    // 当正向/反向都被标记的时候再做判断，决定如何更新数据库状态
     if (wordStore !== null) {
         alertStore.setLoading(true);
         try {
@@ -314,10 +294,9 @@ async function reviewFlou(item) {
                 await wordStore.updateWordStatus(item);
             }
 
-            wordStore.aRevoirRQ(item); // 这个时候虽然更新词汇状态，但还是要把它重新加入队列末尾，还要复习
+            wordStore.putToReviewQueue(item);
             wordStore.reviewWordCount += 1;
             item.__needBtn__ = false;
-            console.log("模糊，现在的队列", JSON.stringify(wordStore.reviewQueue));
         } finally {
             alertStore.setLoading(false);
         }
@@ -335,7 +314,7 @@ async function reviewOublie(item) {
                 await wordStore.updateWordStatus(item, 1);
             }
 
-            wordStore.aRevoirRQ(item);
+            wordStore.putToReviewQueue(item);
             wordStore.reviewWordCount += 1;
             item.__needBtn__ = false;
             console.log("忘记了，现在的队列", JSON.stringify(wordStore.reviewQueue));

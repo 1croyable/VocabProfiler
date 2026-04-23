@@ -4,7 +4,7 @@
             <v-col cols="12" md="8" class="pa-0">
                 <div id="left-bg" class="position-relative">
                     <v-overlay v-model="rajouterOverlay" class="align-center d-flex justify-center" contained>
-                        <v-card max-width="90vw">
+                        <v-card width="80vw">
                             <v-card-title style="font-size: 20px; color: grey;">"{{ rectoText }}" existe déjà.</v-card-title>
                             <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
                                 <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="15vw" height="25vh" class="flex-shrink-0">
@@ -17,7 +17,7 @@
                                 <v-btn color="light-green-darken-4" @click="ajouter" :disabled="alertStore.loading">
                                     Ajouter quand même
                                 </v-btn>
-                                <v-btn color="success" @click="rajouterOverlay = false" :disabled="alertStore.loading">
+                                <v-btn color="success" @click="close" :disabled="alertStore.loading">
                                     Annuler
                                 </v-btn>
                             </v-card-actions>
@@ -51,7 +51,7 @@
                                         Le verso
                                     </p>
                                     <div style="display: inline-block;">
-                                        <v-radio-group density="comfortable" inline :hide-details="true" v-model="type">
+                                        <v-radio-group :disabled="alertStore.loading" density="comfortable" inline :hide-details="true" v-model="type">
                                             <v-radio label="active" value="active"></v-radio>
                                             <v-radio label="passive" value="passive"></v-radio>
                                         </v-radio-group>
@@ -78,6 +78,7 @@
                                     clearable
                                     v-model="versoText"
                                 ></v-textarea>
+                                <v-btn class="mt-2" color="black" v-show="rectoText && versoText" @click="swap" block>Swap the front and back</v-btn>
                             </v-card-text>
                         </v-card>
                     </div>
@@ -159,7 +160,7 @@ const tab = ref("a");
 const currCard = ref([]);
 const cardCurrType = ref("");
 const learnStatus = ref("");
-const rajouterOverlay = ref(false); // 重复添加时添加询问
+const rajouterOverlay = ref(false);
 const reversedWordFlag = ref(false);
 
 const { mdAndUp: isDesktop } = useDisplay();
@@ -208,22 +209,32 @@ async function ajouter(){
     }
 }
 
+function close(){
+    rajouterOverlay.value = false;
+    rectoText.value = "";
+    versoText.value = "";
+    type.value = "active";
+}
+
+function swap(){
+    const temp = rectoText.value;
+    rectoText.value = versoText.value;
+    versoText.value = temp;
+}
+
 async function initReviewQueue(type) {
     if (typeof type === 'string' && type.match(/^(active|passive),(new|review)$/)) {
         alertStore.setLoading(true);
         try {
-        // 卡片类型会变的（在review中两种都会出现，但是学习新词时只能是learn），所以分开管理
-        cardCurrType.value = type.split(',')[1] === 'new' ? 'learn' : 'review';
-        learnStatus.value = type.split(',')[1];
-        wordStore.resetQueue();
-        reviewWordLength = wordStore.initReviewQueue(type.split(',')[0], type.split(',')[1]);
-        wordStore.reviewWordLimitPosition = reviewWordLength;
-        const nextWord = wordStore.peekCurrent();
-        
-        currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
-        wordStore.reviewWordCount = 0;
-
-        // console.log("初始化复习队列，当前的review队列：", wordStore.reviewQueue, "当前要展示的词汇是", currCard);
+            cardCurrType.value = type.split(',')[1] === 'new' ? 'learn' : 'review';
+            learnStatus.value = type.split(',')[1];
+            wordStore.resetQueue();
+            reviewWordLength = wordStore.initReviewQueue(type.split(',')[0], type.split(',')[1]);
+            wordStore.reviewWordLimitPosition = reviewWordLength;
+            const nextWord = wordStore.peekCurrent();
+            
+            currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
+            wordStore.reviewWordCount = 0;
         } finally {
             alertStore.setLoading(false);
         }
@@ -247,11 +258,8 @@ async function nextCard() {
         __loadingPlaceholder__: true,
     }];
     try {
-        // review模式在末尾会切换成learn模式
         if (cardCurrType.value === 'review') {
-            // console.log("复习队列已复习单词数量：", wordStore.reviewWordCount, "/", reviewWordLength);
             if (cardCurrType.value === 'review' && wordStore.reviewWordCount >= reviewWordLength) {
-                // console.log("复习队列单词已全部复习，切换到learn模式");
                 cardCurrType.value = 'learn';
             }
         }
@@ -311,19 +319,12 @@ async function nextCard() {
     }
 }
 
-// 合并展示词汇，输出一个数组用于渲染，做到当前队列的词汇需要操作，合并在一起操作
-// 这样就不会出现即学习又复习，不会乱。
 async function conbineShowWords(motherWord, currentQueue){
-    // 查询所有与motherWord有相同word或者explanation的词汇，然后输出一个数组用于渲染，在后端还要先判断原词汇还是倒转词汇
-    // 后端查到的，不在现在的渲染列表里的词汇都是直接prochain，不用交互
-    // console.log("[合并词汇中] 当前母词：", motherWord, "当前队列：", currentQueue);
     let relatedWords;
     
     if (!motherWord.__isReversed__) {
         relatedWords = wordStore.findRelatedWordsById(motherWord.id);
-        // console.log("[合并词汇中] 本地查询到的所有相关词汇：", relatedWords);
     } else {
-        // console.log("词汇是倒转词，不需要查询相关词汇");
         relatedWords = [motherWord];
     }
 
@@ -331,16 +332,14 @@ async function conbineShowWords(motherWord, currentQueue){
     reversedWordFlag.value = !!isReversed;
 
     if (!isReversed) {
-        // console.log("[合并词汇中] 不是倒转词，当前队列：", currentQueue, "待合并的相关词汇：", relatedWords);
         const showWords = relatedWords.map(word => {
-            const inCurrentStore = currentQueue.find(w => w.word === word.word && w.explanation === word.explanation); // 只要word和explanation都相同就行，不管有没有倒转，就可以说明这个词汇是否正在被访问
+            const inCurrentStore = currentQueue.find(w => w.word === word.word && w.explanation === word.explanation);
             return {
                 ...word,
                 __needBtn__: !!inCurrentStore
             }
         });
         showWords.sort((a, b) => {
-            // 先按照needBtn排序，false在前
             if (a.__needBtn__ === b.__needBtn__) {
                 return 0;
             }
@@ -348,7 +347,6 @@ async function conbineShowWords(motherWord, currentQueue){
         })
         return showWords;
     } else {
-        // 倒转的词汇没必要设置
         return [motherWord];
     }
 }
