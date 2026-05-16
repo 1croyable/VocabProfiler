@@ -1,32 +1,31 @@
 <template>
-    <v-container fluid class="pa-0">
+    <v-container fluid class="pa-0" id="container">
         <v-row no-gutters>
+            <v-overlay v-model="rajouterOverlay" class="align-center d-flex justify-center" contained>
+                <v-card width="60vw">
+                    <v-card-title style="font-size: 20px; color: grey;">"{{ rectoText }}" has already been added.</v-card-title>
+                    <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
+                        <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="15vw" height="25vh" class="flex-shrink-0">
+                            <p>Explication {{ index + 1 }}</p>
+                            <v-divider :thickness="1" color="info" class="my-2"></v-divider>
+                            <p class="preserve-breaks">{{ item.explanation }}</p>
+                        </v-sheet>
+                    </div>
+                    <v-card-actions>
+                        <v-btn color="light-green-darken-4" @click="ajouter" :disabled="alertStore.loading">
+                            Add Anyway
+                        </v-btn>
+                        <v-btn color="success" @click="close" :disabled="alertStore.loading">
+                            Cancel
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-overlay>
             <v-col cols="12" md="8" class="pa-0">
-                <div id="left-bg" class="position-relative">
-                    <v-overlay v-model="rajouterOverlay" class="align-center d-flex justify-center" contained>
-                        <v-card width="80vw">
-                            <v-card-title style="font-size: 20px; color: grey;">"{{ rectoText }}" existe déjà.</v-card-title>
-                            <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
-                                <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="15vw" height="25vh" class="flex-shrink-0">
-                                    <p>{{ index + 1 }}</p>
-                                    <v-divider :thickness="1" color="info" class="my-2"></v-divider>
-                                    <p class="preserve-breaks">{{ item.explanation }}</p>
-                                </v-sheet>
-                            </div>
-                            <v-card-actions>
-                                <v-btn color="light-green-darken-4" @click="ajouter" :disabled="alertStore.loading">
-                                    Ajouter quand même
-                                </v-btn>
-                                <v-btn color="success" @click="close" :disabled="alertStore.loading">
-                                    Annuler
-                                </v-btn>
-                            </v-card-actions>
-                        </v-card>
-                    </v-overlay>
-
+                <div id="left-bg" class="position-relative display-flex align-center justify-center flex-wrap">
                     <div id="recto-verso">
                         <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
-                            <v-card-title class="text-h6">Le recto</v-card-title>
+                            <v-card-title class="text-h6">The recto</v-card-title>
                             <v-card-text>
                                 <v-divider :thickness="2" color="info" length="84%" class="mb-4"></v-divider>
                                 <v-textarea
@@ -48,7 +47,7 @@
                             <v-card-title>
                                 <div id="verso-title">
                                     <p style="display: inline-block;" class="text-h6">
-                                        Le verso
+                                        The verso
                                     </p>
                                     <div style="display: inline-block;">
                                         <v-radio-group :disabled="alertStore.loading" density="comfortable" inline :hide-details="true" v-model="type">
@@ -58,7 +57,7 @@
                                     </div>
                                     <transition name="fly-in-left">
                                         <div style="display: inline-block;" v-show="type && normalizedRectoText && normalizedVersoText">
-                                            <v-btn @click="handleAjouter" rounded="xl" size="small" color="black" :disabled="alertStore.loading">ajouter</v-btn>
+                                            <v-btn @click="handleAdd" rounded="xl" size="small" color="black" :disabled="alertStore.loading">Add</v-btn>
                                         </div>
                                     </transition>
                                 </div>
@@ -78,69 +77,71 @@
                                     clearable
                                     v-model="versoText"
                                 ></v-textarea>
-                                <v-btn class="mt-2" color="black" v-show="rectoText && versoText" @click="swap" block>Swap the front and back</v-btn>
+                                <v-btn :disabled="alertStore.loading" class="mt-2" color="black" v-show="rectoText && versoText" @click="swap" block>Swap the front and back</v-btn>
                             </v-card-text>
                         </v-card>
                     </div>
                 </div>
             </v-col>
             <v-col cols="12" md="4" class="pa-2">
-                <div v-if="currCard.length > 0">
-                    <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
+                <div id="right-bg" class="my-4 pb-4 rounded-xl">
+                    <div v-if="currCard.length > 0">
+                        <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
 
-                    <wordCard 
-                    :cardType="cardCurrType"
-                    :learnStatus="learnStatus"
-                    :word="currCard"
-                    :reversedWord="reversedWordFlag"
-                    @nextCard="nextCard"
-                    ></wordCard>
+                        <wordCard 
+                        :cardType="cardCurrType"
+                        :learnStatus="learnStatus"
+                        :word="currCard"
+                        :reversedWord="reversedWordFlag"
+                        @nextCard="nextCard"
+                        ></wordCard>
+                    </div>
+                    <v-card elevation="4" v-else>
+                        <v-tabs color="primary" v-model="tab" align-tabs="center">
+                            <v-tab value="a">Active Words</v-tab>
+                            <v-tab value="p">Passive Words</v-tab>
+                        </v-tabs>
+
+                        <v-divider></v-divider>
+
+                        <v-window v-model="tab">
+                            <v-window-item value="a">
+                                <v-card class="pa-5">
+                                    <div v-if="wordStore && wordStore.activeWordsStruct.wordsToLearnCount > 0">
+                                        <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " words" }} </StartButton>
+                                    </div>
+                                    <div v-else>
+                                        <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
+                                    </div>
+
+                                    <div v-if="wordStore && wordStore.activeWordsStruct.wordsToReviewCount > 0">
+                                        <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.activeWordsStruct.wordsToReviewCount + " words" }} </StartButton>
+                                    </div>
+                                    <div v-else>
+                                        <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
+                                    </div>
+                                </v-card>
+                            </v-window-item>
+                            <v-window-item value="p">
+                                <v-card class="pa-5">
+                                    <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToLearnCount > 0">
+                                        <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " words" }} </StartButton>
+                                    </div>
+                                    <div v-else>
+                                        <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
+                                    </div>
+
+                                    <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToReviewCount > 0">
+                                        <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " words" }} </StartButton>
+                                    </div>
+                                    <div v-else>
+                                        <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
+                                    </div>
+                                </v-card>
+                            </v-window-item>
+                        </v-window>
+                    </v-card>
                 </div>
-                <v-card elevation="4" v-else>
-                    <v-tabs color="primary" v-model="tab" align-tabs="center">
-                        <v-tab value="a">Mots Actives</v-tab>
-                        <v-tab value="p">Mots Passives</v-tab>
-                    </v-tabs>
-
-                    <v-divider></v-divider>
-
-                    <v-window v-model="tab">
-                        <v-window-item value="a">
-                            <v-card class="pa-5">
-                                <div v-if="wordStore && wordStore.activeWordsStruct.wordsToLearnCount > 0">
-                                    <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " mots" }} </StartButton>
-                                </div>
-                                <div v-else>
-                                    <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">Pas de nouveaux mots</StartButton>
-                                </div>
-
-                                <div v-if="wordStore && wordStore.activeWordsStruct.wordsToReviewCount > 0">
-                                    <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">A REVISER: {{ wordStore.activeWordsStruct.wordsToReviewCount + " mots" }} </StartButton>
-                                </div>
-                                <div v-else>
-                                    <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">Pas de mots à réviser</StartButton>
-                                </div>
-                            </v-card>
-                        </v-window-item>
-                        <v-window-item value="p">
-                            <v-card class="pa-5">
-                                <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToLearnCount > 0">
-                                    <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " mots" }} </StartButton>
-                                </div>
-                                <div v-else>
-                                    <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">Pas de nouveaux mots</StartButton>
-                                </div>
-
-                                <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToReviewCount > 0">
-                                    <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">A REVISER: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " mots" }} </StartButton>
-                                </div>
-                                <div v-else>
-                                    <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">Pas de mots à réviser</StartButton>
-                                </div>
-                            </v-card>
-                        </v-window-item>
-                    </v-window>
-                </v-card>
             </v-col>
         </v-row>
     </v-container>
@@ -178,7 +179,7 @@ const duplicateWords = computed(() => wordStore.findWords(normalizedRectoText.va
 
 let reviewWordLength = 0;
 
-async function handleAjouter() {
+async function handleAdd() {
     if (!normalizedRectoText.value || !normalizedVersoText.value) return;
     // 确认词汇存在与否，如果已存在，就询问是否重复添加
     const existingWord = wordStore.findWord(normalizedRectoText.value, type.value);
@@ -389,10 +390,16 @@ onMounted(() => {
 </script>
 
 <style lang="less" scoped>
+#container {
+    background-image: url('/desk_image.png');
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
 #left-bg {
     height: 100vh;
     width: 100%;
-    background-color: #EEEEEE;
 
     #recto-verso {
         position: absolute;
@@ -407,6 +414,20 @@ onMounted(() => {
         flex-wrap: wrap;
         gap: 16px;
     }
+}
+
+#right-bg {
+    height: calc(100% - 32px);
+    width: 100%;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(3px) saturate(60%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+    overflow: hidden;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
 }
 
 .hide-scroll-bar::-webkit-scrollbar {
@@ -449,6 +470,11 @@ onMounted(() => {
 
 <style lang="less" scoped>
 @media (max-width: 960px) {
+    #container {
+        background-image: url('/mobile_image.png');
+        background-position: top center;
+    }
+
     #recto-verso {
         width: 100%;
         height: auto;

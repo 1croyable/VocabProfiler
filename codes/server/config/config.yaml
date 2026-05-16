@@ -17,8 +17,8 @@ db:
 
 # JWT 配置
 jwt:
-  secret: process.JWT_SECRET    # JWT 密钥 (从 .env 加载)
-  defaultExpires: 7d                 # 默认过期时间
+  secret: process.JWT_SECRET
+  defaultExpires: process.JWT_EXPIRES_IN
 
 # 日志配置
 logging:

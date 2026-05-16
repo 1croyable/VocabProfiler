@@ -19,6 +19,9 @@
 # Local config files
 **/*.local
 
+# config
+codes/server/config.yaml
+
 # Environment files (keep examples)
 **/.env
 **/.env.*
