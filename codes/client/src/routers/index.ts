@@ -1,12 +1,14 @@
 import { createRouter, Router, createWebHistory, RouteRecordRaw } from 'vue-router';
 
 import HomeRoutes from './home.routes';
+import LoginRoutes from './login.routes';
 
 import { useAlertStore } from '../stores';
 import { useAuthStore } from '../stores';
 
 const routes: Array<RouteRecordRaw> = [
     ...HomeRoutes,
+    ...LoginRoutes,
     { path: '/:pathMatch(.*)*', redirect: '/' }
 ];
 
@@ -23,21 +25,19 @@ router.beforeEach(async (to, from, next) => {
     if (to.meta.requiresAuth) {
         let user = await authStore.getCurrentUser();
         if (!user) {
-            authStore.userToken = null;
-            localStorage.removeItem('user');
+            authStore.user = null;
             authStore.returnUrl = to.fullPath;
-            next('/account/login');
+            next('/login');
         } else {
             next();
         }
-    } else if (to.path === '/account/login' || to.path === '/account/register') {
+    } else if (to.path === '/login') {
         let user = await authStore.getCurrentUser();
         if (user) {
-            alertStore.error('您已登录，请先退出登录');
+            alertStore.error('您已登录');
             next(from.fullPath);
         } else {
-            authStore.userToken = null;
-            localStorage.removeItem('user');
+            authStore.user = null;
             next();
         }
     } else {

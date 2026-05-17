@@ -3,7 +3,7 @@ const router = express.Router();
 const connection = require('../../db/connection');
 
 router.get('/list', async (req, res) => {
-    const group = req.query.group;
+    const userId = req.query.userId;
 
     let result;
     const sql = `
@@ -11,10 +11,10 @@ router.get('/list', async (req, res) => {
         DATE_FORMAT(next_review_date, '%Y-%m-%d') as next_review_date, 
         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
         word_group
-        FROM words WHERE word_group = ?
+        FROM words WHERE user_id = ?
     `;
     try{
-        result = await connection.execute('vocab_profiler_db', sql, [group]);
+        result = await connection.execute('vocab_profiler_db', sql, [userId]);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to fetch words' });
     }
@@ -23,25 +23,24 @@ router.get('/list', async (req, res) => {
 });
 
 router.post('/add', async (req, res) => {
-    const { word, explanation, type, word_group } = req.body;
+    const { word, explanation, type, word_group, user_id } = req.body;
 
     try {
-        await connection.execute('vocab_profiler_db', 'INSERT INTO words (word, explanation, type, word_group) VALUES (?, ?, ?, ?)', [word, explanation, type, word_group]);
+        await connection.execute('vocab_profiler_db', 'INSERT INTO words (word, explanation, type, word_group, user_id) VALUES (?, ?, ?, ?, ?)', [word, explanation, type, word_group, user_id]);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to add word' });
     }
 
-    // 获取最新插入的id
     const newIdResult = await connection.execute('vocab_profiler_db', 'SELECT LAST_INSERT_ID() as id');
     const newId = newIdResult[0].id;
     res.json(newId);
 });
 
 router.patch('/update-level', async (req, res) => {
-    const { id, word, level, next_review_date } = req.body;
+    const { id, word, level, next_review_date, user_id } = req.body;
 
     try {
-        await connection.execute('vocab_profiler_db', 'UPDATE words SET level = ?, next_review_date = ? WHERE id = ? AND word = ?', [level, next_review_date, id, word]);
+        await connection.execute('vocab_profiler_db', 'UPDATE words SET level = ?, next_review_date = ? WHERE id = ? AND word = ? AND user_id = ?', [level, next_review_date, id, word, user_id]);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to update word level'  });
     }

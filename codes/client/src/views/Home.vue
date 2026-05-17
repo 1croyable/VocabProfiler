@@ -84,63 +84,68 @@
                 </div>
             </v-col>
             <v-col cols="12" md="4" class="pa-2">
-                <div id="right-bg" class="my-4 pb-4 rounded-xl">
-                    <div v-if="currCard.length > 0">
-                        <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
+                <div id="right-bg" class="my-4 rounded-xl">
+                    <div id="card-region">
+                        <div v-if="currCard.length > 0">
+                            <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
 
-                        <wordCard 
-                        :cardType="cardCurrType"
-                        :learnStatus="learnStatus"
-                        :word="currCard"
-                        :reversedWord="reversedWordFlag"
-                        @nextCard="nextCard"
-                        ></wordCard>
+                            <wordCard 
+                            :cardType="cardCurrType"
+                            :learnStatus="learnStatus"
+                            :word="currCard"
+                            :reversedWord="reversedWordFlag"
+                            @nextCard="nextCard"
+                            ></wordCard>
+                        </div>
+                        <v-card elevation="4" v-else>
+                            <v-tabs color="primary" v-model="tab" align-tabs="center">
+                                <v-tab value="a">Active Words</v-tab>
+                                <v-tab value="p">Passive Words</v-tab>
+                            </v-tabs>
+
+                            <v-divider></v-divider>
+
+                            <v-window v-model="tab">
+                                <v-window-item value="a">
+                                    <v-card class="pa-5">
+                                        <div v-if="wordStore && wordStore.activeWordsStruct.wordsToLearnCount > 0">
+                                            <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " words" }} </StartButton>
+                                        </div>
+                                        <div v-else>
+                                            <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
+                                        </div>
+
+                                        <div v-if="wordStore && wordStore.activeWordsStruct.wordsToReviewCount > 0">
+                                            <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.activeWordsStruct.wordsToReviewCount + " words" }} </StartButton>
+                                        </div>
+                                        <div v-else>
+                                            <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
+                                        </div>
+                                    </v-card>
+                                </v-window-item>
+                                <v-window-item value="p">
+                                    <v-card class="pa-5">
+                                        <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToLearnCount > 0">
+                                            <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " words" }} </StartButton>
+                                        </div>
+                                        <div v-else>
+                                            <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
+                                        </div>
+
+                                        <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToReviewCount > 0">
+                                            <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " words" }} </StartButton>
+                                        </div>
+                                        <div v-else>
+                                            <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
+                                        </div>
+                                    </v-card>
+                                </v-window-item>
+                            </v-window>
+                        </v-card>
                     </div>
-                    <v-card elevation="4" v-else>
-                        <v-tabs color="primary" v-model="tab" align-tabs="center">
-                            <v-tab value="a">Active Words</v-tab>
-                            <v-tab value="p">Passive Words</v-tab>
-                        </v-tabs>
-
-                        <v-divider></v-divider>
-
-                        <v-window v-model="tab">
-                            <v-window-item value="a">
-                                <v-card class="pa-5">
-                                    <div v-if="wordStore && wordStore.activeWordsStruct.wordsToLearnCount > 0">
-                                        <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " words" }} </StartButton>
-                                    </div>
-                                    <div v-else>
-                                        <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
-                                    </div>
-
-                                    <div v-if="wordStore && wordStore.activeWordsStruct.wordsToReviewCount > 0">
-                                        <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.activeWordsStruct.wordsToReviewCount + " words" }} </StartButton>
-                                    </div>
-                                    <div v-else>
-                                        <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
-                                    </div>
-                                </v-card>
-                            </v-window-item>
-                            <v-window-item value="p">
-                                <v-card class="pa-5">
-                                    <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToLearnCount > 0">
-                                        <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " words" }} </StartButton>
-                                    </div>
-                                    <div v-else>
-                                        <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
-                                    </div>
-
-                                    <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToReviewCount > 0">
-                                        <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " words" }} </StartButton>
-                                    </div>
-                                    <div v-else>
-                                        <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
-                                    </div>
-                                </v-card>
-                            </v-window-item>
-                        </v-window>
-                    </v-card>
+                    <div id="tools-region" v-if="currCard.length === 0">
+                        <v-btn block type="button" width="40%" @click="logout">Log Out</v-btn>
+                    </div>
                 </div>
             </v-col>
         </v-row>
@@ -150,7 +155,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useDisplay } from 'vuetify';
-import { useWordStore, useAlertStore } from '@/stores';
+import { useWordStore, useAlertStore, useAuthStore } from '@/stores';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
 
@@ -168,6 +173,7 @@ const { mdAndUp: isDesktop } = useDisplay();
 
 const wordStore = useWordStore();
 const alertStore = useAlertStore();
+const authStore = useAuthStore();
 
 function normalizeInputChunk(value) {
     return wordStore.normalizeInputText(value);
@@ -199,7 +205,8 @@ async function ajouter(){
             word: normalizedRectoText.value,
             explanation: normalizedVersoText.value,
             type: type.value,
-            word_group: 1
+            word_group: 1,
+            user_id: authStore.user?.id,
         });
         rajouterOverlay.value = false;
         rectoText.value = "";
@@ -384,9 +391,17 @@ async function closeCard() {
     }
 }
 
-onMounted(() => {
-    wordStore.fetchWords();
+onMounted(async () => {
+    const user = await authStore.getCurrentUser();
+
+    if (!user) return;
+    
+    wordStore.fetchWords(user.id);
 })
+
+function logout() {
+    authStore.logout();
+}
 </script>
 
 <style lang="less" scoped>
@@ -418,7 +433,9 @@ onMounted(() => {
 
 #right-bg {
     height: calc(100% - 32px);
+    min-height: calc(65vh + 200px);
     width: 100%;
+
     background: rgba(255, 255, 255, 0.18);
     backdrop-filter: blur(3px) saturate(60%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
@@ -426,8 +443,10 @@ onMounted(() => {
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
     overflow: hidden;
     border-radius: 16px;
+
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
 }
 
 .hide-scroll-bar::-webkit-scrollbar {

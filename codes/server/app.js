@@ -11,6 +11,7 @@ require('dotenv').config();
 // 路由
 const healthCheckRouter = require('./apis/core/health-check');
 const wordRouter = require('./apis/core/word');
+const userRouter = require('./apis/core/user');
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use(cookieParser());
 // 注册路由
 app.use('/', healthCheckRouter);
 app.use('/word', wordRouter);
+app.use('/user', userRouter);
 
 app.use((err, req, res, next) => {
     logger.error(err.stack);

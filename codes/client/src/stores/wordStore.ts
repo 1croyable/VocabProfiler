@@ -3,6 +3,7 @@ import { reactive, toRaw } from 'vue';
 import { axiosWrapper } from '../utilities/axios-wrapper';
 import { WordList, WordPayload, WordItem } from '../type';
 import dayjs from 'dayjs';
+import { useAuthStore } from './authStore';
 
 export const useWordStore = defineStore('word', {
     state: () => ({
@@ -26,8 +27,12 @@ export const useWordStore = defineStore('word', {
         normalizeInputText(value: string) {
             return (value ?? '').replace(/\r\n/g, '\n').trim();
         },
-        async fetchWords(group: number = 1) {
-            this.words = await axiosWrapper.get<WordList>(`/word/list?group=${group}`);
+        async fetchWords(user_id: number) {
+            if (!user_id) {
+                console.error('User ID is required to fetch words');
+                return;
+            }
+            this.words = await axiosWrapper.get<WordList>(`/word/list?userId=${user_id}`);
             this.words = this.words.map(word => ({ ...word, __needBtn__: true, __isReversed__: false }));
             this.rangeWords();
         },
@@ -185,8 +190,9 @@ export const useWordStore = defineStore('word', {
             this.reviewActiveWordStatusList = {};
             this.memoryWindowProgressTempWordList = {};
         },
-        async updateWordStatus(word: WordItem, toLevel: number | null = null) {
-            if (word.__isReversed__) return;
+        async updateWordStatus(word: WordItem, user_id: number | undefined, toLevel: number | null = null) {
+            if (word.__isReversed__ || !user_id) return;
+            
             const id = word.id;
             const wordData = word.word;
             const newLevel = toLevel !== null ? toLevel : word.level + 1;
@@ -216,6 +222,7 @@ export const useWordStore = defineStore('word', {
                 word: wordData,
                 level: newLevel,
                 next_review_date: nextReviewDate,
+                user_id
             });
 
             const idx = this.words.findIndex(w => w.id === id);
@@ -233,7 +240,12 @@ export const useWordStore = defineStore('word', {
             this.reviewQueue.push(newWord);
         },
         async enqueueToWindow(word: WordItem, isNew: Boolean, complex: Boolean = false){
-            console.log("isNew: " + isNew + ", maxMemoryWindowLength: " + this.maxMemoryWindowLength + ", 当前memory窗口长度: " + this.memoryWindow.length);
+            const authStore = useAuthStore();
+            if (!authStore.user?.id) {
+                console.error('User ID is required to enqueue word');
+                return;
+            }
+
             let head = null;
 
             if (complex && this.maxMemoryWindowLength >= 5) {
@@ -254,7 +266,7 @@ export const useWordStore = defineStore('word', {
                     this.activeWordsReversedWordFlagWhenLearn[head.explanation] = 1;
                     if (this.activeWordsProgressTempWordListWhenLearn[head.explanation]) {
                         this.activeWordsProgressTempWordListWhenLearn[head.explanation].forEach(async w => {
-                            await this.updateWordStatus(w);
+                            await this.updateWordStatus(w, authStore.user?.id);
                         });
                     }
                 } else {
@@ -263,10 +275,10 @@ export const useWordStore = defineStore('word', {
                             if (!this.activeWordsProgressTempWordListWhenLearn[head.word]) this.activeWordsProgressTempWordListWhenLearn[head.word] = [];
                             this.activeWordsProgressTempWordListWhenLearn[head.word].push(head);
                         } else {
-                            await this.updateWordStatus(head);
+                            await this.updateWordStatus(head, authStore.user?.id);
                         }
                     } else if (head.type === 'passive') {
-                        await this.updateWordStatus(head);
+                        await this.updateWordStatus(head, authStore.user?.id);
                     }
                 }
             }
@@ -302,17 +314,23 @@ export const useWordStore = defineStore('word', {
             }
         },
         async updateRestMemory(){
+            const authStore = useAuthStore();
+            if (!authStore.user?.id) {
+                console.error('User ID is required to update memory words');
+                return;
+            }
+
             const updateTasks: Array<Promise<void>> = [];
 
             if (this.memoryWindow.length > 0) {
-                updateTasks.push(...this.memoryWindow.map(word => this.updateWordStatus(word)));
+                updateTasks.push(...this.memoryWindow.map(word => this.updateWordStatus(word, authStore.user?.id)));
             }
 
             if (!!this.activeWordsProgressTempWordListWhenLearn) {
                 for (const key in this.activeWordsProgressTempWordListWhenLearn) {
                     const wordList = this.activeWordsProgressTempWordListWhenLearn[key];
                     if (wordList && wordList.length > 0) {
-                        updateTasks.push(...wordList.map(word => this.updateWordStatus(word)));
+                        updateTasks.push(...wordList.map(word => this.updateWordStatus(word, authStore.user?.id)));
                     }
                 }
             }

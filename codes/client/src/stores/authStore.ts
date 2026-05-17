@@ -3,9 +3,15 @@ import { axiosWrapper } from '../utilities/axios-wrapper';
 import router from '../routers';
 import { useAlertStore } from './alertStore';
 
+type User = {
+    id: number;
+    username: string;
+    role: 'user' | 'admin';
+};
+
 export const useAuthStore = defineStore('auth', {
     state: () => ({
-        userToken: JSON.parse(localStorage.getItem('user') || 'null'),
+        user: null as User | null,
         returnUrl: null as string | null // 某个页面需要用户登录，但是用户没登录，这个时候会让用户登录并保存这个页面到returnUrl
     }),
     actions: {
@@ -13,39 +19,58 @@ export const useAuthStore = defineStore('auth', {
             const alertStore = useAlertStore();
 
             try {
-                const userToken = await axiosWrapper.post<{ token: string }>('/user/authenticate', { username, password });
+                const res = await axiosWrapper.post<{ message: string; user: User }>(
+                    '/user/login',
+                    { username, password }
+                );
 
-                // 跟新user状态
-                this.userToken = userToken;
-
-                // 使用 localStorage 保存用户信息，以便刷新页面时保持登录状态
-                localStorage.setItem('user', JSON.stringify(userToken));
+                this.user = res.user;
 
                 router.push(this.returnUrl || '/');
                 this.returnUrl = null;
+
+                return true;
             } catch (error) {
                 alertStore.error(error as string);
+                return false;
             }
         },
-        logout() {
-            this.userToken = null;
-            this.returnUrl = null;
-            localStorage.removeItem('user');
-            router.push('/account/login');
-        },
-        async authLevel(userId: number) {
-            const level = await axiosWrapper.get<{ level: number }>('/user/authLevel:' + userId);
-            return level;
-        },
-        async register(user: Record<string, any>) {
-            await axiosWrapper.post('/user/register', user);
-        },
-        async getCurrentUser() { // 获取用户的信息并返回直接使用，不保存，在任何需要使用的地方使用就行
+        async register(username: string, password: string) {
+            const alertStore = useAlertStore();
+
             try {
-                return await axiosWrapper.get<Record<string, any>>('/user/verifyToken');
+                const res = await axiosWrapper.post<{ message: string; user: User }>(
+                    '/user/register',
+                    { username, password }
+                );
+
+                this.user = res.user;
+
+                router.push(this.returnUrl || '/');
+                this.returnUrl = null;
+                return true;
             } catch (error) {
-                const alertStore = useAlertStore();
-                alertStore.error(error as string); // 并返回undefined
+                alertStore.error(error as string);
+                return false;
+            }
+        },
+        async logout() {
+            try {
+                await axiosWrapper.post<{ message: string }>('/user/logout');
+            } catch {}
+            this.user = null;
+            this.returnUrl = null;
+
+            router.push('/login');
+        },
+        async getCurrentUser() {
+            try {
+                const res = await axiosWrapper.get<{ user: User }>('/user/me');
+                this.user = res.user;
+                return res.user;
+            } catch {
+                this.user = null;
+                return null;
             }
         }
     }
