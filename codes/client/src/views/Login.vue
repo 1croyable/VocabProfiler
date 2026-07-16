@@ -13,9 +13,9 @@
                         </template>
                     </v-text-field>
 
-                    <div class="d-flex justify-space-around">
-                        <v-btn class="mt-2" type="submit" width="40%">Login</v-btn>
-                        <v-btn class="mt-2" type="button" width="40%" variant="outlined" @click="toggleSheet(false)">I don't have an account</v-btn>
+                    <div class="buttons">
+                        <v-btn class="mt-2" type="submit">Login</v-btn>
+                        <v-btn class="mt-2" type="button" variant="outlined" @click="toggleSheet(false)">I don't have an account</v-btn>
                     </div>
                 </v-form>
             </v-sheet>
@@ -37,9 +37,9 @@
                         </template>
                     </v-text-field>
 
-                    <div class="d-flex justify-space-around">
-                        <v-btn class="mt-2" type="submit" width="40%">Register</v-btn>
-                        <v-btn class="mt-2" type="button" width="40%" variant="outlined" @click="toggleSheet(true)">Back to Login</v-btn>
+                    <div class="buttons">
+                        <v-btn class="mt-2" type="submit">Register</v-btn>
+                        <v-btn class="mt-2" type="button" variant="outlined" @click="toggleSheet(true)">Back to Login</v-btn>
                     </div>
                 </v-form>
             </v-sheet>
@@ -124,5 +124,25 @@ async function register(){
     color: red;
     margin-top: 10px;
     font-size: 14px;
+}
+
+.buttons {
+    display: flex;
+    justify-content: space-around;
+
+    &:deep(.v-btn) {
+        width: 45%;
+    }
+}
+
+@media (max-width: 1000px) {
+    .buttons {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .buttons :deep(.v-btn) {
+        width: 100%;
+    }
 }
 </style>
