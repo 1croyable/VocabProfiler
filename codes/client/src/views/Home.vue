@@ -85,9 +85,10 @@
             </v-col>
             <v-col cols="12" md="4" class="pa-2">
                 <div id="right-bg" class="my-4 rounded-xl">
-                    <div id="card-region">
+                    <div id="main-region" class="overflow-y-scroll hide-scroll-bar">
+                        <!-- 背单词界面 -->
                         <div v-if="currCard.length > 0">
-                            <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
+                            <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" color="cyan-darken-4" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
 
                             <wordCard 
                             :cardType="cardCurrType"
@@ -97,6 +98,9 @@
                             @nextCard="nextCard"
                             ></wordCard>
                         </div>
+                        <!-- 单词表界面 -->
+                        <NoteBook v-else-if="showNotebook"></NoteBook>
+                        <!-- 主界面 -->
                         <v-card elevation="4" v-else>
                             <v-tabs color="primary" v-model="tab" align-tabs="center">
                                 <v-tab value="a">Active Words</v-tab>
@@ -144,11 +148,18 @@
                         </v-card>
                     </div>
                     <div id="tools-region" v-if="currCard.length === 0">
-                        <v-btn block type="button" width="40%" @click="logout">Log Out</v-btn>
+                        <v-btn v-if="!showNotebook" width="77%" class="mr-8" height="50px" @click="showNotebook = true;">View Notebook</v-btn>
+                        <v-btn v-else width="77%" class="mr-8" height="50px" @click="backToTab">Back to Tab</v-btn>
+
+                        <v-btn id="logout-btn" type="button" icon @click="logout">
+                            <img src="/logout.svg" alt="Log Out" class="logout-icon" />
+                        </v-btn>
                     </div>
                 </div>
             </v-col>
         </v-row>
+
+        <Confirm v-model="showLogoutConfirm" title="Log Out" message="Are you sure you want to log out?" confirm-text="Confirm" cancel-text="Cancel" @confirm="confirmLogout"/>
     </v-container>
 </template>
 
@@ -158,6 +169,8 @@ import { useDisplay } from 'vuetify';
 import { useWordStore, useAlertStore, useAuthStore } from '@/stores';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
+import Confirm from '@/components/Confirm.vue';
+import NoteBook from '@/components/NoteBook.vue';
 
 const type = ref("active");
 const rectoText = ref("");
@@ -168,6 +181,8 @@ const cardCurrType = ref("");
 const learnStatus = ref("");
 const rajouterOverlay = ref(false);
 const reversedWordFlag = ref(false);
+const showLogoutConfirm = ref(false);
+const showNotebook = ref(false);
 
 const { mdAndUp: isDesktop } = useDisplay();
 
@@ -361,6 +376,7 @@ async function conbineShowWords(motherWord, currentQueue){
 
 async function backToTab() {
     currCard.value = [];
+    showNotebook.value = false;
     reviewWordLength = 0;
     wordStore.reviewWordCount = 0;
     cardCurrType.value = "";
@@ -400,6 +416,10 @@ onMounted(async () => {
 })
 
 function logout() {
+    showLogoutConfirm.value = true;
+}
+
+function confirmLogout() {
     authStore.logout();
 }
 </script>
@@ -432,7 +452,8 @@ function logout() {
 }
 
 #right-bg {
-    height: calc(100% - 32px);
+    height: calc(97vh - 32px);
+    max-height: calc(97vh - 32px);
     min-height: calc(65vh + 200px);
     width: 100%;
 
@@ -447,10 +468,34 @@ function logout() {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+
+    #main-region {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    #tools-region {
+        height: 50px;
+        background-color: #FAFAFA;
+        box-shadow: 0px -2px 5px rgba(0, 0, 0, 0.2);
+
+        display: flex;
+
+        #logout-btn {
+            margin-left: auto;
+            width: 50px;
+        }
+    }
 }
 
 .hide-scroll-bar::-webkit-scrollbar {
     display: none;
+}
+
+.hide-scroll-bar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 .preserve-breaks {
@@ -467,6 +512,14 @@ function logout() {
         align-self: flex-start;
         font-size: 35px;
     }
+}
+
+.logout-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    display: block;
+    transform: translateX(10%);
 }
 
 </style>

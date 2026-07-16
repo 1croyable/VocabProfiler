@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { axiosWrapper } from '../utilities/axios-wrapper';
 import router from '../routers';
 import { useAlertStore } from './alertStore';
+import { useWordStore } from './wordStore';
 
 type User = {
     id: number;
@@ -55,11 +56,16 @@ export const useAuthStore = defineStore('auth', {
             }
         },
         async logout() {
+            const alertStore = useAlertStore();
+            const wordStore = useWordStore();
+
             try {
                 await axiosWrapper.post<{ message: string }>('/user/logout');
             } catch {}
-            this.user = null;
-            this.returnUrl = null;
+
+            wordStore.$reset();
+            alertStore.$reset();
+            this.$reset();
 
             router.push('/login');
         },

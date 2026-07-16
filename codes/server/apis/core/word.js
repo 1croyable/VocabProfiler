@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const connection = require('../../db/connection');
+const authMiddleware = require('../../middlewares/authMiddleware');
 
 router.get('/list', async (req, res) => {
     const userId = req.query.userId;
@@ -47,5 +48,30 @@ router.patch('/update-level', async (req, res) => {
 
     res.json({ message: 'Word level updated successfully' });
 })
+
+router.patch('/update', authMiddleware, async (req, res) => {
+    const { id, word, explanation, type } = req.body;
+    const userId = req.user.id;
+
+    if (!id || !word || !explanation || !type) {
+        return res.status(400).json({ error: 'id, word, explanation and type are required' });
+    }
+
+    try {
+        const result = await connection.execute(
+            'vocab_profiler_db',
+            'UPDATE words SET word = ?, explanation = ?, type = ? WHERE id = ? AND user_id = ?',
+            [word, explanation, type, id, userId]
+        );
+
+        if (!result.affectedRows) {
+            return res.status(404).json({ error: 'Word not found' });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to update word' });
+    }
+
+    res.json({ message: 'Word updated successfully' });
+});
 
 module.exports = router;
