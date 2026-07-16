@@ -9,7 +9,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 8443,
-    strictPort: false, // 若3000端口被占用,是否直接结束项目
+    strictPort: false, // 若8443端口被占用,是否直接结束项目
     https: false, // 是否开启 https
     open: '/dev', // 是否自动在浏览器打开
     proxy: {

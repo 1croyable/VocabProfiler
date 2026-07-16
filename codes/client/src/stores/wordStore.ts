@@ -27,12 +27,14 @@ export const useWordStore = defineStore('word', {
         normalizeInputText(value: string) {
             return (value ?? '').replace(/\r\n/g, '\n').trim();
         },
-        async fetchWords(user_id: number) {
-            if (!user_id) {
+        async fetchWords() {
+            const authStore = useAuthStore();
+            if (!authStore.user?.id) {
                 console.error('User ID is required to fetch words');
                 return;
             }
-            this.words = await axiosWrapper.get<WordList>(`/word/list?userId=${user_id}`);
+
+            this.words = await axiosWrapper.get<WordList>(`/word/list?userId=${authStore.user.id}`);
             this.words = this.words.map(word => ({ ...word, __needBtn__: true, __isReversed__: false }));
             this.rangeWords();
         },
@@ -190,8 +192,14 @@ export const useWordStore = defineStore('word', {
             this.reviewActiveWordStatusList = {};
             this.memoryWindowProgressTempWordList = {};
         },
-        async updateWordStatus(word: WordItem, user_id: number | undefined, toLevel: number | null = null) {
-            if (word.__isReversed__ || !user_id) return;
+        async updateWordStatus(word: WordItem, toLevel: number | null = null) {
+            const authStore = useAuthStore();
+            if (!authStore.user?.id) {
+                console.error('User ID is required to enqueue word');
+                return;
+            }
+
+            if (word.__isReversed__) return;
             
             const id = word.id;
             const wordData = word.word;
@@ -222,7 +230,7 @@ export const useWordStore = defineStore('word', {
                 word: wordData,
                 level: newLevel,
                 next_review_date: nextReviewDate,
-                user_id
+                user_id: authStore.user.id
             });
 
             const idx = this.words.findIndex(w => w.id === id);

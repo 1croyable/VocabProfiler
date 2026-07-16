@@ -396,7 +396,7 @@ onMounted(async () => {
 
     if (!user) return;
     
-    wordStore.fetchWords(user.id);
+    wordStore.fetchWords();
 })
 
 function logout() {
