@@ -130,19 +130,49 @@ const props = defineProps({
 });
 
 const rectos = computed(() => {
-    // 检查word列表里每个项的word属性是否相同，如果相同则只保留第一个，否则保留所有
+    /**
+     * 传入的有可能是类似这样的格式：
+        props.word = [
+            { word: "chat", explanation: "猫" },
+            { word: "chat", explanation: "闲聊" },
+            { word: "chat", explanation: "聊天" }
+        ]
+     */
+
+    // 反向卡片：多个解释 -> 一个基础词汇
     if (props.reversedWord) {
-        return props.word[0].word.split(' %/% ');
+        const baseWord = props.word[0]?.explanation;
+
+        const seenExplanations = new Set();
+
+        return wordStore.words
+            .filter(item =>
+                item.type === 'active' &&
+                item.word === baseWord
+            )
+            .filter(item => {
+                if (seenExplanations.has(item.explanation)) {
+                    return false;
+                }
+
+                seenExplanations.add(item.explanation);
+                return true;
+            })
+            .map(item => ({
+                word: item.explanation,
+            }));
     }
 
+    // 正向卡片：同一个基础词汇只在正面显示一次
     const seenWords = new Set();
+
     return props.word.filter(item => {
         if (seenWords.has(item.word)) {
             return false;
-        } else {
-            seenWords.add(item.word);
-            return true;
         }
+
+        seenWords.add(item.word);
+        return true;
     });
 })
 
@@ -154,18 +184,53 @@ const shouldUseOrderedList = computed(() => {
     return !isLoadingPlaceholder.value && rectos.value.length > 1;
 });
 
-const versos = computed(() => {
+// 当前背诵轮次构建出的versos
+const sessionVersos = computed(() => {
     const seenExplanations = new Set();
 
     return props.word.filter(item => {
         if (seenExplanations.has(item.explanation)) {
             return false;
-        } else {
+        }
+
+        seenExplanations.add(item.explanation);
+        return true;
+    });
+});
+// 当前页面实际显示的反面。对积极词汇的正向，额外动态读取 wordStore.words，显示背诵过程中新增的解释。
+const versos = computed(() => {
+    const currentVersos = sessionVersos.value;
+
+    if (props.reversedWord || isLoadingPlaceholder.value)
+        return currentVersos;
+
+    const baseWord = props.word[0];
+
+    const seenExplanations = new Set(
+        currentVersos.map(item => item.explanation)
+    );
+
+    const newlyAddedVersos = wordStore.words
+        .filter(item =>
+            item.type === baseWord.type &&
+            item.word === baseWord.word &&
+            item.word_group === baseWord.word_group
+        )
+        .filter(item => {
+            if (seenExplanations.has(item.explanation)) {
+                return false;
+            }
+
             seenExplanations.add(item.explanation);
             return true;
-        }
-    });
-})
+        })
+        .map(item => ({
+            ...item,
+            __needBtn__: false
+        }));
+
+    return [...newlyAddedVersos, ...currentVersos];
+});
 
 watch(
     () => props.word,

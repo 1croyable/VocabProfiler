@@ -102,34 +102,18 @@ export const useWordStore = defineStore('word', {
         buildActiveReverseCandidates(candidates: WordList): WordList {
             const reverseCandidates = candidates.map((word: WordItem) => {
                 const raw = toRaw(word);
-                const tempWord = reactive({ ...raw }) as WordItem;
-                const temp = tempWord.word;
-                tempWord.word = raw.explanation;
-                tempWord.explanation = temp;
-                tempWord.__isReversed__ = true;
-                return tempWord;
+
+                return reactive({
+                    ...raw,
+                    word: raw.explanation,
+                    explanation: raw.word,
+                    __isReversed__: true,
+                }) as WordItem;
             });
 
-            let reverseCandidatesReduced = [] as WordList;
-            reverseCandidates.forEach((word: WordItem) => {
-                const existing = reverseCandidatesReduced.find(w => w.explanation === word.explanation);
-                if (existing) {
-                    existing.word += ` %/% ${word.word}`;
-                } else {
-                    reverseCandidatesReduced.push(word);
-                }
-            })
-
-            this.words.forEach(word => {
-                if (word.type === 'active') {
-                    const existing = reverseCandidatesReduced.find(w => w.explanation === word.word);
-                    if (existing && !existing.word.split(' %/% ').includes(word.explanation)) {
-                        existing.word += ` %/% ${word.explanation}`;
-                    }
-                }
-            })
-
-            return reverseCandidatesReduced;
+            return reverseCandidates.filter((word, index, words) =>
+                words.findIndex(reverseCandidate => reverseCandidate.explanation === word.explanation) === index
+            );
         },
         initReviewQueue(type: 'active' | 'passive', mode: 'new' | 'review') {
             this.rangeWords();
