@@ -6,21 +6,21 @@
                     <div style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center;">
                         <ol v-if="shouldUseOrderedList">
                             <li v-for="(item, index) in rectos" :key="index">
-                                <p class="text-center preserve-breaks" style="height: auto; font-size: 1.2rem; line-height: 1.6rem;">
+                                <p class="text-center" style="white-space: pre-line; height: auto; font-size: 1.2rem; line-height: 1.6rem;">
                                     {{ item.word || item }}
                                 </p>
                             </li>
                         </ol>
                         <div v-else>
-                            <p class="text-center preserve-breaks" style="height: auto; font-size: 1.2rem; line-height: 1.6rem;">
+                            <p class="text-center" style="white-space: pre-line; height: auto; font-size: 1.2rem; line-height: 1.6rem;">
                                 {{ rectos[0]?.word || rectos[0] || '' }}
                             </p>
                         </div>
                     </div>
                     <div style="width: 90%">
-                        <v-divider class="my-4 solid-divider" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
+                        <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                         <v-card-actions>
-                            <v-btn color="#A4A4A4" block variant="text" @click="verso = true" :disabled="alertStore.loading">Cliquez pour voir le verso</v-btn>
+                            <v-btn color="#A4A4A4" block variant="text" @click="verso = true" :disabled="alertStore.loading">Click to see the back</v-btn>
                         </v-card-actions>
                     </div>
                 </div>
@@ -32,62 +32,63 @@
                         <div class="card-content">
                             <div class="align-self-start" style="width: 100%;">
                                 <div class="d-flex flex-space-between" style="width: 100%;">
-                                    <p class="text-h5" style="flex: 1 1 auto;">Explication</p>
+                                    <p class="text-h5">Explanation</p>
+                                    <v-spacer />
                                     <v-card-actions class="pa-0">
-                                        <v-btn color="teal-accent-4 mr-2" icon="mdi-backspace" @click="verso = false" :disabled="alertStore.loading"></v-btn>
+                                        <v-btn width="40" height="40" min-width="40" color="teal-accent-4 mr-2" icon="mdi-arrow-down" @click="verso = false" :disabled="alertStore.loading"></v-btn>
                                     </v-card-actions>
                                 </div>  
+                                <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                             </div>
 
-                            <div v-if="!props.reversedWord" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="height: 100%; width: 90%;">
-                                <div v-for="(item, index) in versos" :key="index" style="width: 95%;">
-                                    <div class="d-flex mx-2" style="width: 100%; height: 100%;">
+                            <div v-if="!props.reversedWord" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="height: 100%; width: 100%;">
+                                <div v-for="(item, index) in versos" :key="index" class="flex-shrink-0" :style="{ width: versos.length === 1 ? '100%' : '90%', height: '100%' }">
+                                    <div class="d-flex" style="width: 100%; height: 100%;">
                                         <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
-                                            <div style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
-                                                <p class="text-medium-emphasis mb-4 pl-1 preserve-breaks" style="font-size: 1.1rem; line-height: 1.2rem;">
+                                            <div class="d-flex align-center justify-center" style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
+                                                <p class="text-medium-emphasis text-center px-4 mb-0" style="width: 100%; white-space: pre-line; font-size: 1.1rem; line-height: 1.6rem;">
                                                     {{ item.explanation }}
                                                 </p>
                                             </div>
                                             <div>
-                                                <v-divider class="my-4 solid-divider" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
+                                                <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                                                 <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center">
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="learnRetenu(item)" color="green accent-4 mr-3" variant="text">Retenu</v-btn>
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="ARevoir(item)" color="red accent-4 ml-3" variant="text">À revoir</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="learnRetenu(item)" color="green accent-4 mr-3" variant="text">Learned</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="ARevoir(item)" color="red accent-4 ml-3" variant="text">To Review</v-btn>
                                                 </v-card-actions>
                                                 <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center">
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewMatriser(item)" color="blue accent-4" variant="text">Maîtrisé</v-btn>
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewFlou(item)" color="#BEC832" variant="text">Flou</v-btn>
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewOublie(item)" color="red accent-4 ml-3" variant="text">Oublié</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewMatriser(item)" color="blue accent-4" variant="text">Mastered</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewFlou(item)" color="#BEC832" variant="text">Unclear</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewOublie(item)" color="red accent-4 ml-3" variant="text">Forgotten</v-btn>
                                                 </v-card-actions>
                                             </div>
                                         </div>
-                                        <v-divider color="red" opacity=".7" thickness="3" gradient vertical></v-divider>
+                                        <v-divider v-show="index !== versos.length - 1" class="border-opacity-100" color="#DEDEDE" vertical></v-divider>
                                     </div>
                                 </div>
                             </div>
-                            <div v-else class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="height: 100%; width: 90%;">
+                            <div v-else class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="height: 100%; width: 100%;">
                                 <!-- 是倒转词，应该是多个意思对应一个词汇，按钮总是显示，因为这个词汇是列表里的，就算某些意义不在列表里 -->
-                                    <div class="d-flex mx-2" style="width: 100%; height: 100%;">
+                                <div class="d-flex" style="width: 100%; height: 100%;">
                                     <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
-                                        <div style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
-                                            <p class="text-medium-emphasis mb-4 pl-1 preserve-breaks" style="font-size: 1.1rem; line-height: 1.2rem;">
+                                        <div class="d-flex align-center justify-center" style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
+                                            <p class="text-medium-emphasis text-center px-4 mb-0" style="width: 100%; white-space: pre-line; font-size: 1.1rem; line-height: 1.6rem;">
                                                 {{ props.word[0].explanation }}
                                             </p>
                                         </div>
                                         <div>
-                                            <v-divider class="my-4 solid-divider" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
+                                            <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                                             <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center">
-                                                <v-btn :disabled="alertStore.loading" @click="learnRetenu(props.word[0])" color="green accent-4 mr-3" variant="text">Retenu</v-btn>
-                                                <v-btn :disabled="alertStore.loading" @click="ARevoir(props.word[0])" color="red accent-4 ml-3" variant="text">À revoir</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="learnRetenu(props.word[0])" color="green accent-4 mr-3" variant="text">Learned</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="ARevoir(props.word[0])" color="red accent-4 ml-3" variant="text">To Review</v-btn>
                                             </v-card-actions>
                                             <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center">
-                                                <v-btn :disabled="alertStore.loading" @click="reviewMatriser(props.word[0])" color="blue accent-4" variant="text">Maîtrisé</v-btn>
-                                                <v-btn :disabled="alertStore.loading" @click="reviewFlou(props.word[0])" color="#BEC832" variant="text">Flou</v-btn>
-                                                <v-btn :disabled="alertStore.loading" @click="reviewOublie(props.word[0])" color="red accent-4 ml-3" variant="text">Oublié</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="reviewMatriser(props.word[0])" color="blue accent-4" variant="text">Mastered</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="reviewFlou(props.word[0])" color="#BEC832" variant="text">Unclear</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="reviewOublie(props.word[0])" color="red accent-4 ml-3" variant="text">Forgotten</v-btn>
                                             </v-card-actions>
                                         </div>
                                     </div>
-                                    <v-divider color="red" opacity=".7" thickness="3" gradient vertical></v-divider>
                                 </div>
                             </div>
                         </div>
@@ -391,10 +392,6 @@ async function reviewOublie(item) {
 </script>
 
 <style lang="less" scoped>
-.solid-divider {
-    --v-border-opacity: 1;
-}
-
 .card-content {
     width: 100%;
     height: 58vh;
@@ -404,11 +401,14 @@ async function reviewOublie(item) {
     justify-content: space-between;
 }
 
-.hide-scroll-bar::-webkit-scrollbar {
-    display: none;
-}
+@media (hover: none) and (pointer: coarse) {
+    .hide-scroll-bar::-webkit-scrollbar {
+        display: none;
+    }
 
-.preserve-breaks {
-    white-space: pre-line;
+    .hide-scroll-bar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 }
 </style>

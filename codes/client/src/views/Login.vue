@@ -1,7 +1,7 @@
 <template>
     <v-container fluid class="pa-0 position-relative" style="height: 100vh">
         <div id="content">
-            <v-sheet width="50vw" v-if="isLogin">
+            <v-sheet width="70vw" max-width="768" v-if="isLogin">
                 <h3 class="text-headline-small font-weight-bold">Login</h3>
                 <v-divider :thickness="8" class="border-opacity-50 mb-4" color="info" length="40%"></v-divider>
                 <v-form @submit.prevent="login">
@@ -19,7 +19,7 @@
                     </div>
                 </v-form>
             </v-sheet>
-            <v-sheet width="50vw" v-else>
+            <v-sheet width="70vw" max-width="768" v-else>
                 <h3 class="text-headline-small font-weight-bold mt-0 mb-4">Register</h3>
                 <v-divider :thickness="8" class="border-opacity-50 mb-4" color="info" length="40%"></v-divider>
                 <v-form @submit.prevent="register">

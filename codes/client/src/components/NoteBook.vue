@@ -1,29 +1,32 @@
 <template>
-	<v-card class="bg-transparent elevation-0" elevation="4" width="100%">
-		<v-card-title class="text-h6 font-weight-bold">
-			Word Notebook
-		</v-card-title>
+	<v-card class="bg-transparent elevation-0 d-flex flex-column" elevation="4" width="100%" height="100%">
+		<div class="notebook-header elevation-3">
+			<v-card-title class="text-h6 font-weight-bold">
+				Word Notebook
+			</v-card-title>
 
-		<v-card-text>
-			<v-text-field
-				v-model="search"
-				density="compact"
-				label="Search by word or explanation"
-				prepend-inner-icon="mdi-magnify"
-				variant="outlined"
-				flat
-				hide-details
-				single-line
-				class="mb-4"
-			>
-				<template #append-inner>
-					<v-btn variant="plain" width="30" height="30" min-width="30" @click.stop="ifPairAll = !ifPairAll;" :class="{ 'bg-grey': ifPairAll }"
-						:title="ifPairAll ? 'Disable whole word matching' : 'Enable whole word matching'">
-						<v-icon>mdi-format-letter-matches</v-icon>
-					</v-btn>
-				</template>
-			</v-text-field>
+			<v-card-text>
+				<v-text-field
+					v-model="search"
+					density="compact"
+					label="Search by word or explanation"
+					prepend-inner-icon="mdi-magnify"
+					variant="outlined"
+					flat
+					hide-details
+					single-line
+				>
+					<template #append-inner>
+						<v-btn variant="plain" width="30" height="30" min-width="30" @click.stop="ifPairAll = !ifPairAll;" :class="{ 'bg-grey': ifPairAll }"
+							:title="ifPairAll ? 'Disable whole word matching' : 'Enable whole word matching'">
+							<v-icon>mdi-format-letter-matches</v-icon>
+						</v-btn>
+					</template>
+				</v-text-field>
+			</v-card-text>
+		</div>
 
+		<v-card-text class="notebook-table-container pt-0">
 			<v-data-table
                 class="bg-transparent table"
 				v-model:search="search"
@@ -78,6 +81,12 @@
 								rows="2"
 								hide-details
 							/>
+						</v-col>
+					</v-row>
+
+					<v-row>
+						<v-col cols="12">
+							<v-btn prepend-icon="mdi-arrow-up-thick" append-icon="mdi-arrow-down-thick" :disabled="loading" color="black" @click="swap" width="70%" min-width="300" variant="outlined">Swap the front and back</v-btn>
 						</v-col>
 					</v-row>
 
@@ -158,7 +167,8 @@ const tableItems = computed(() => {
 });
 
 const showSaveButton = computed(() => {
-    return selectedItem.value != null && (editForm.value.word !== selectedItem.value?.word ||
+    return selectedItem.value != null && !!editForm.value.word && !!editForm.value.explanation &&
+		(editForm.value.word !== selectedItem.value?.word ||
         editForm.value.explanation !== selectedItem.value?.explanation ||
         editForm.value.type !== selectedItem.value?.type);
 });
@@ -274,6 +284,12 @@ async function confirmRemoveWord() {
 		loading.value = false;
 	}
 }
+
+function swap() {
+	const temp = editForm.value.word;
+	editForm.value.word = editForm.value.explanation;
+	editForm.value.explanation = temp;
+}
 </script>
 
 <style lang="less" scoped>
@@ -316,5 +332,19 @@ async function confirmRemoveWord() {
 
 .edit-dialog-card {
 	min-height: 180px;
+}
+
+.notebook-header {
+	flex: 0 0 auto;
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: rgb(var(--v-theme-background));
+}
+
+.notebook-table-container {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
 }
 </style>

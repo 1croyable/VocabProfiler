@@ -5,7 +5,7 @@
                 <v-card width="60vw">
                     <v-card-title style="font-size: 20px; color: grey;">"{{ rectoText }}" has already been added.</v-card-title>
                     <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
-                        <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="15vw" height="25vh" class="flex-shrink-0">
+                        <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="40%" height="25vh" class="flex-shrink-0 mr-4">
                             <p>Explication {{ index + 1 }}</p>
                             <v-divider :thickness="1" color="info" class="my-2"></v-divider>
                             <p class="preserve-breaks">{{ item.explanation }}</p>
@@ -489,13 +489,15 @@ function confirmLogout() {
     }
 }
 
-.hide-scroll-bar::-webkit-scrollbar {
-    display: none;
-}
+@media (hover: none) and (pointer: coarse) {
+    .hide-scroll-bar::-webkit-scrollbar {
+        display: none;
+    }
 
-.hide-scroll-bar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    .hide-scroll-bar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 }
 
 .preserve-breaks {
