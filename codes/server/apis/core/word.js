@@ -74,4 +74,29 @@ router.patch('/update', authMiddleware, async (req, res) => {
     res.json({ message: 'Word updated successfully' });
 });
 
+router.delete('/remove/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!id) {
+        return res.status(400).json({ error: 'id is required' });
+    }
+
+    try {
+        const result = await connection.execute(
+            'vocab_profiler_db',
+            'DELETE FROM words WHERE id = ? AND user_id = ?',
+            [id, userId]
+        );
+
+        if (!result.affectedRows) {
+            return res.status(404).json({ error: 'Word not found' });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to remove word' });
+    }
+
+    res.json({ message: 'Word removed successfully' });
+});
+
 module.exports = router;

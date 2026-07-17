@@ -8,23 +8,32 @@
 			<v-text-field
 				v-model="search"
 				density="compact"
-				label="Search by word"
+				label="Search by word or explanation"
 				prepend-inner-icon="mdi-magnify"
 				variant="outlined"
 				flat
 				hide-details
 				single-line
 				class="mb-4"
-			/>
+			>
+				<template #append-inner>
+					<v-btn variant="plain" width="30" height="30" min-width="30" @click.stop="ifPairAll = !ifPairAll;" :class="{ 'bg-grey': ifPairAll }"
+						:title="ifPairAll ? 'Disable whole word matching' : 'Enable whole word matching'">
+						<v-icon>mdi-format-letter-matches</v-icon>
+					</v-btn>
+				</template>
+			</v-text-field>
+
 			<v-data-table
                 class="bg-transparent table"
 				v-model:search="search"
-				:filter-keys="['word']"
+				:filter-keys="['word', 'explanation']"
 				:headers="headers"
 				:items="tableItems"
 				density="comfortable"
 				hover
                 :cell-props="() => ({ class: 'notebook-cell' })"
+				:custom-filter="wordFilter"
 				@click:row="openEditDialog"
 			>
 				<template v-slot:item.index="{ item }">
@@ -100,16 +109,20 @@
 			<v-card-actions>
 				<v-spacer />
 				<v-btn :disabled="loading" v-show="showSaveButton" variant="text" @click="saveEdit">Save</v-btn>
+				<v-btn variant="text" :disabled="loading" @click="removeWord">Remove</v-btn>
 				<v-btn variant="text" :disabled="loading" @click="closeEditDialog">Cancel</v-btn>
 			</v-card-actions>
 		</v-card>
 	</v-dialog>
+
+	<Confirm v-model="showRemoveConfirm" title="Remove word" :message="`Are you sure you want to remove this word?`" confirm-text="Remove" @confirm="confirmRemoveWord"></Confirm>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue';
 import { useWordStore } from '@/stores';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
+import Confirm from '@/components/Confirm.vue';
 
 const wordStore = useWordStore();
 const search = ref('');
@@ -121,6 +134,8 @@ const editForm = ref({
 	type: 'active',
 });
 const loading = ref(false);
+const ifPairAll = ref(false);
+const showRemoveConfirm = ref(false);
 
 const headers = [
     { title: 'Number', key: 'index', sortable: false, width: 20 },
@@ -147,6 +162,32 @@ const showSaveButton = computed(() => {
         editForm.value.explanation !== selectedItem.value?.explanation ||
         editForm.value.type !== selectedItem.value?.type);
 });
+
+function wordFilter(value, query) {
+	if (value == null) {
+		return false;
+	}
+
+	const text = String(value).toLocaleLowerCase();
+	const keyword = String(query ?? '').trim().toLocaleLowerCase();
+
+	if (!keyword)
+		return true;
+
+	// 普通模式：只要包含搜索内容即可
+	if (!ifPairAll.value)
+		return text.includes(keyword);
+
+	// 全字匹配模式
+	const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+	const regex = new RegExp(
+		`(?<![\\p{L}\\p{N}_])${escapedKeyword}(?![\\p{L}\\p{N}_])`,
+		'iu'
+	);
+
+	return regex.test(text);
+}
 
 function openEditDialog(event, data) {
 	selectedItem.value = data?.item?.raw ?? data?.item ?? null;
@@ -199,6 +240,39 @@ async function saveEdit(){
     } finally {
         loading.value = false;
     }
+}
+
+function removeWord() {
+	if (!selectedItem.value)
+		return;
+
+	showRemoveConfirm.value = true;
+}
+
+async function confirmRemoveWord() {
+	if (!selectedItem.value)
+		return;
+
+	try {
+		loading.value = true;
+
+		const wordId = selectedItem.value.id;
+
+		await axiosWrapper.delete(`/word/remove/${wordId}`);
+
+		const targetIndex = wordStore.words.findIndex(word => word.id === wordId);
+
+		if (targetIndex !== -1) {
+			wordStore.words.splice(targetIndex, 1);
+			wordStore.rangeWords();
+		}
+
+		closeEditDialog();
+	} catch (error) {
+		console.error('Failed to remove word:', error);
+	} finally {
+		loading.value = false;
+	}
 }
 </script>
 
