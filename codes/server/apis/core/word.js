@@ -3,19 +3,20 @@ const router = express.Router();
 const connection = require('../../db/connection');
 const authMiddleware = require('../../middlewares/authMiddleware');
 
-router.get('/list', async (req, res) => {
-    const userId = req.query.userId;
+router.get('/list', authMiddleware, async (req, res) => {
+    const { notebook_id } = req.query;
+    const userId = req.user.id;
 
     let result;
     const sql = `
         SELECT id, word, explanation, type, level,
         DATE_FORMAT(next_review_date, '%Y-%m-%d') as next_review_date, 
         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at,
-        word_group
-        FROM words WHERE user_id = ?
+        notebook_id
+        FROM words WHERE user_id = ? AND notebook_id = ?
     `;
     try{
-        result = await connection.execute('vocab_profiler_db', sql, [userId]);
+        result = await connection.execute('vocab_profiler_db', sql, [userId, notebook_id]);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to fetch words' });
     }
@@ -23,22 +24,36 @@ router.get('/list', async (req, res) => {
     res.json(result);
 });
 
-router.post('/add', async (req, res) => {
-    const { word, explanation, type, word_group, user_id } = req.body;
+router.post('/add', authMiddleware, async (req, res) => {
+    const { word, explanation, type, notebook_id } = req.body;
+    const userId = req.user.id;
+
+    const sql = `
+        INSERT INTO words (word, explanation, type, notebook_id, user_id)
+        SELECT ?, ?, ?, id, ? FROM notebooks WHERE id = ? AND user_id = ?
+    `;
 
     try {
-        await connection.execute('vocab_profiler_db', 'INSERT INTO words (word, explanation, type, word_group, user_id) VALUES (?, ?, ?, ?, ?)', [word, explanation, type, word_group, user_id]);
+        const result = await connection.execute(
+            'vocab_profiler_db',
+            sql,
+            [word, explanation, type, userId, notebook_id, userId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(403).json({
+                error: 'Notebook does not belong to the user'
+            });
+        }
+
+        return res.status(201).json(result.insertId);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to add word' });
     }
-
-    const newIdResult = await connection.execute('vocab_profiler_db', 'SELECT LAST_INSERT_ID() as id');
-    const newId = newIdResult[0].id;
-    res.json(newId);
 });
 
 router.post('/add-batch', authMiddleware, async (req, res) => {
-    const { words } = req.body;
+    const { words, notebook_id } = req.body;
     const userId = req.user.id;
 
     if (!Array.isArray(words) || words.length === 0) {
@@ -56,17 +71,23 @@ router.post('/add-batch', authMiddleware, async (req, res) => {
             word: item.word.trim(),
             explanation: item.explanation.trim(),
             type: item.type,
-            word_group: 1
         });
     }
 
-    const placeholders = normalizedWords.map(() => '(?, ?, ?, ?, ?)').join(', ');
-    const sql = `INSERT INTO words ( word, explanation, type, word_group, user_id ) VALUES ${placeholders}`;
-    
-    const values = normalizedWords.flatMap(item => [item.word, item.explanation, item.type, item.word_group, userId]);
-    
+    const selects = normalizedWords.map(() => `SELECT ?, ?, ?, id, ? FROM notebooks WHERE id = ? AND user_id = ?`).join(' UNION ALL ');
+
+    const sql = `INSERT INTO words (word, explanation, type, notebook_id, user_id) ${selects}`;
+
+    const values = normalizedWords.flatMap(item => [ item.word, item.explanation, item.type, userId, notebook_id, userId]);
+
     try {
         const result = await connection.execute('vocab_profiler_db', sql, values);
+
+        if (result.affectedRows === 0) {
+            return res.status(403).json({
+                error: 'Notebook does not belong to the user'
+            });
+        }
 
         return res.status(201).json({message: 'Words added successfully',});
     } catch (error) {

@@ -7,6 +7,8 @@ import { useAuthStore } from './authStore';
 
 export const useWordStore = defineStore('word', {
     state: () => ({
+        currentNotebook: null as { id: number; name: string } | null,
+        notebooks: [] as Array<{ id: number; name: string }>,
         words: [] as WordList,
         activeWordsStruct: {},
         passiveWordsStruct: {},
@@ -34,7 +36,15 @@ export const useWordStore = defineStore('word', {
                 return;
             }
 
-            this.words = await axiosWrapper.get<WordList>(`/word/list?userId=${authStore.user.id}`);
+            if (this.currentNotebook === null)
+            {
+                // 查询用户的默认笔记本
+                const notebooks = await axiosWrapper.get<{ id: number; name: string }[]>(`/user/notebooks`);
+                this.currentNotebook = notebooks[0];
+                this.notebooks = notebooks;
+            }
+
+            this.words = await axiosWrapper.get<WordList>(`/word/list?notebook_id=${this.currentNotebook?.id}`);
             this.words = this.words.map(word => ({ ...word, __needBtn__: true, __isReversed__: false }));
             this.rangeWords();
         },
@@ -336,7 +346,7 @@ export const useWordStore = defineStore('word', {
             return this.words.filter(w =>
                 w.word === motherWord.word &&
                 w.type === motherWord.type &&
-                w.word_group === motherWord.word_group
+                w.notebook_id === motherWord.notebook_id
             );
         },
         findWords(word: string, type: 'active' | 'passive') {

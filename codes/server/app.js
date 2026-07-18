@@ -13,6 +13,7 @@ const healthCheckRouter = require('./apis/core/health-check');
 const wordRouter = require('./apis/core/word');
 const userRouter = require('./apis/core/user');
 const wordpackRouter = require('./apis/core/wordpack');
+const notebookRouter = require('./apis/core/notebook');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/', healthCheckRouter);
 app.use('/word', wordRouter);
 app.use('/user', userRouter);
 app.use('/wordpack', wordpackRouter);
+app.use('/notebook', notebookRouter);
 app.use((err, req, res, next) => {
     logger.error(err.stack);
     res.status(500).json({ error: 'Something went wrong!' });

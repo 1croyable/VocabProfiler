@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const connection = require('../../db/connection');
 const { getConfig } = require('../../config/configLoader');
+const authMiddleware = require('../../middlewares/authMiddleware')
 
 function createToken(user) {
     return jwt.sign(
@@ -46,10 +47,17 @@ router.post('/register', async (req, res) => {
 
         const passwordHash = await bcrypt.hash(password, 12);
 
+        // 插入新用户
         const result = await connection.execute(
             'vocab_profiler_db',
             'INSERT INTO users (username, password) VALUES (?, ?)',
             [username, passwordHash]
+        );
+        // 创建默认笔记本
+        await connection.execute(
+            'vocab_profiler_db',
+            'INSERT INTO notebooks (user_id, name) VALUES (?, ?)',
+            [result.insertId, 'Default Notebook']
         );
 
         const user = {
@@ -123,10 +131,22 @@ router.post('/logout', (req, res) => {
     res.json({ message: 'Logout successful' });
 });
 
-router.get('/me', require('../../middlewares/authMiddleware'), (req, res) => {
+router.get('/me', authMiddleware, (req, res) => {
     res.json({
         user: req.user
     });
+});
+
+router.get('/notebooks', authMiddleware, async (req, res) => {
+    const userId = req.user.id;
+    const sql = 'SELECT id, name FROM notebooks WHERE user_id = ?';
+
+    try {
+        const notebooks = await connection.execute('vocab_profiler_db', sql, [userId]);
+        res.json(notebooks.sort((a, b) => a.id - b.id));
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch notebook IDs' });
+    }
 });
 
 module.exports = router;

@@ -8,7 +8,7 @@ export interface WordItem {
 	level: number;
 	next_review_date: string | null;
 	created_at: string;
-	word_group: number;
+	notebook_id: number;
 	__needBtn__: boolean; // 考虑到合并词汇，需要区分是否需要显示操作按钮
 	__isReversed__?: boolean;
 }
@@ -17,7 +17,7 @@ export interface WordPayload {
     word: string;
     explanation: string;
     type: WordType;
-    word_group: number;
+    notebook_id: number;
 }
 
 export type WordList = WordItem[];

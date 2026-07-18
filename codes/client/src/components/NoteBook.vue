@@ -60,6 +60,8 @@
 				</template>
 			</v-data-table>
 		</v-card-text>
+
+		<v-btn width="77%" class="mr-8" height="40px" @click="emit('backToTab')">Back to Tab</v-btn>
 	</v-card>
 
 	<v-dialog v-model="showEditDialog" persistent max-width="480">
@@ -132,6 +134,8 @@ import { computed, ref } from 'vue';
 import { useWordStore } from '@/stores';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
 import Confirm from '@/components/Confirm.vue';
+
+const emit = defineEmits(['backToTab']);
 
 const wordStore = useWordStore();
 const search = ref('');

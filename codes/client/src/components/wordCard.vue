@@ -215,7 +215,7 @@ const versos = computed(() => {
         .filter(item =>
             item.type === baseWord.type &&
             item.word === baseWord.word &&
-            item.word_group === baseWord.word_group
+            item.notebook_id === baseWord.notebook_id
         )
         .filter(item => {
             if (seenExplanations.has(item.explanation)) {

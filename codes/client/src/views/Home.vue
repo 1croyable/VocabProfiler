@@ -99,7 +99,7 @@
                             ></wordCard>
                         </div>
                         <!-- 单词表界面 -->
-                        <NoteBook v-else-if="showNotebook"></NoteBook>
+                        <NoteBook v-else-if="showNotebook" @backToTab="backToTab"></NoteBook>
                         <!-- 主界面 -->
                         <div v-else class="d-flex flex-column" style="height: 100%;">
                             <!-- 选项卡 -->
@@ -150,31 +150,47 @@
                             </v-card>
                             <!-- 选项卡下面 -->
                             <div style="flex: 1 1 0;" class="d-flex flex-column justify-end align-center">
-                                <v-btn @click="showImportUI = true;" width="100%" class="mb-1 bg-transparent">
+                                <!-- 笔记本管理 -->
+                                <div class="d-flex align-center" style="width: 100%;">
+                                    <v-btn @click="changeNotebook" width="60%" height="50" class="bg-transparent align-self-start elevation-1">
+                                        Change Notebook
+                                        <template #prepend>
+                                            <v-icon color="orange-darken-4" size="x-large">mdi-swap-horizontal</v-icon>
+                                        </template>
+                                    </v-btn>
+                                    <div class="d-flex align-center overflow-hidden" v-if="wordStore && wordStore.currentNotebook">
+                                        <v-icon size="x-large">mdi-menu-right</v-icon>
+                                        <p class="overflow-hidden text-truncate">{{ wordStore.currentNotebook.name }}</p>
+                                    </div>
+                                </div>
+                                <!-- 包管理 -->
+                                <v-btn @click="showImport" width="100%" class="mb-1 bg-transparent">
                                     Import Word Pack
                                     <template #prepend>
                                         <v-icon color="cyan-darken-4" size="large">mdi-package-variant</v-icon>
                                     </template>
                                 </v-btn>
+                                <!-- 笔记本查看和登出 -->
+                                <div id="tools-region" class="bg-transparent" style="width: 100%;">
+                                    <v-btn width="77%" class="mr-8 bg-transparent" height="50px" @click="viewNoteBook">
+                                        View Notebook
+                                        <template #prepend>
+                                            <v-icon color="indigo-darken-1" size="large">mdi-notebook-heart</v-icon>
+                                        </template>
+                                    </v-btn>
+
+                                    <v-btn id="logout-btn" type="button" icon @click="logout">
+                                        <img src="/logout.svg" alt="Log Out" class="logout-icon" />
+                                    </v-btn>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div id="tools-region" v-if="currCard.length === 0" class="bg-transparent">
-                        <v-btn v-if="!showNotebook" width="77%" class="mr-8 bg-transparent" height="50px" @click="showNotebook = true;">
-                            View Notebook
-                            <template #prepend>
-                                <v-icon color="indigo-darken-1" size="large">mdi-notebook-heart</v-icon>
-                            </template>
-                        </v-btn>
-                        <v-btn v-else width="77%" class="mr-8" height="50px" @click="backToTab">Back to Tab</v-btn>
-
-                        <v-btn id="logout-btn" type="button" icon @click="logout">
-                            <img src="/logout.svg" alt="Log Out" class="logout-icon" />
-                        </v-btn>
                     </div>
                 </div>
             </v-col>
         </v-row>
+        
+        <ChangeNotebookDialog v-model="showChangeNotebookUI" :notebookNumbers="notebookNumbers"/>
 
         <ImportWordPackDialog v-model="showImportUI"/>
 
@@ -186,11 +202,13 @@
 import { computed, onMounted, ref } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useWordStore, useAlertStore, useAuthStore } from '@/stores';
+import { axiosWrapper } from '../utilities/axios-wrapper';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
 import Confirm from '@/components/Confirm.vue';
 import NoteBook from '@/components/NoteBook.vue';
 import ImportWordPackDialog from '@/components/ImportWordPack.vue';
+import ChangeNotebookDialog from '@/components/ChangeNotebook.vue';
 
 const type = ref("active");
 const rectoText = ref("");
@@ -205,6 +223,8 @@ const showLogoutConfirm = ref(false);
 const showNotebook = ref(false);
 const showImportUI = ref(false);
 const importedWordPack = ref(null);
+const showChangeNotebookUI = ref(false);
+const notebookNumbers = ref({});
 
 const { mdAndUp: isDesktop } = useDisplay();
 
@@ -242,8 +262,7 @@ async function ajouter(){
             word: normalizedRectoText.value,
             explanation: normalizedVersoText.value,
             type: type.value,
-            word_group: 1,
-            user_id: authStore.user?.id,
+            notebook_id: wordStore.currentNotebook.id,
         });
         rajouterOverlay.value = false;
         rectoText.value = "";
@@ -297,7 +316,7 @@ async function nextCard() {
         level: 0,
         next_review_date: null,
         created_at: "",
-        word_group: 1,
+        notebook_id: 1,
         __needBtn__: true,
         __isReversed__: false,
         __loadingPlaceholder__: true,
@@ -434,7 +453,7 @@ onMounted(async () => {
 
     if (!user) return;
     
-    wordStore.fetchWords();
+    await wordStore.fetchWords();
 })
 
 function logout() {
@@ -443,6 +462,33 @@ function logout() {
 
 function confirmLogout() {
     authStore.logout();
+}
+
+async function changeNotebook(){
+    if (alertStore.loading) return;
+
+    notebookNumbers.value = {};
+    try {
+        notebookNumbers.value = await axiosWrapper.post('/notebook/word-number', {
+            'notebook_ids': wordStore.currentNotebook ? [wordStore.currentNotebook.id] : []
+        });
+
+        showChangeNotebookUI.value = true;
+    } catch (error) {
+        console.error("Failed to fetch notebooks:", error);
+    }
+}
+
+function showImport() {
+    if (alertStore.loading) return;
+
+    showImportUI.value = true;
+}
+
+function viewNoteBook() {
+    if (alertStore.loading) return;
+
+    showNotebook.value = true;
 }
 </script>
 

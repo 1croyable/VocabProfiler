@@ -256,7 +256,8 @@ async function addToNotebook() {
 
     try {
         await axiosWrapper.post('/word/add-batch', {
-            "words": wordsToAdd
+            "words": wordsToAdd,
+            "notebook_id": wordStore.currentNotebook.id
         });
 
         await wordStore.fetchWords();

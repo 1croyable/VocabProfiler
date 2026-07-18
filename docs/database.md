@@ -3,32 +3,49 @@
 ## 单词表
 
 ```sql
-CREATE TABLE IF NOT EXISTS words (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    word VARCHAR(255) NOT NULL,                 -- 允许重复，支持多义词原子化录入
-    explanation TEXT NOT NULL,                  -- 卡片背面
-    type ENUM('passive', 'active') NOT NULL,    -- 认知词 vs. 掌握词
-    level INT DEFAULT 0,                        -- 当前等级 (0-5)
-    next_review_date DATE,                      -- 下次复习日期 (核心索引字段)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- 创建时间
-    word_group INT NOT NULL,                        -- 分组机制，代表不同的背诵计划
-
-    INDEX idx_next_review (next_review_date) -- 为复习查询添加索引，提高筛选效率
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `words` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned DEFAULT NULL,
+  `word` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `explanation` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('passive','active') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `level` int DEFAULT '0',
+  `next_review_date` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `notebook_id` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_next_review` (`next_review_date`),
+  KEY `fk_words_user` (`user_id`),
+  KEY `idx_words_notebook_id` (`notebook_id`),
+  CONSTRAINT `fk_words_notebook` FOREIGN KEY (`notebook_id`) REFERENCES `notebooks` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_words_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=56 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ```
 
 ```sql
-CREATE TABLE users (
-    id INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-
-    role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
-
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    last_login_at TIMESTAMP NULL DEFAULT NULL
-);
+CREATE TABLE `users` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('user','admin') NOT NULL DEFAULT 'user',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `last_login_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 ```
 
+```sql
+CREATE TABLE `notebooks` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_notebooks_user_name` (`user_id`,`name`),
+  KEY `idx_notebooks_user_id` (`user_id`),
+  CONSTRAINT `fk_notebooks_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+```
