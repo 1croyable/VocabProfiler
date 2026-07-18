@@ -37,6 +37,45 @@ router.post('/add', async (req, res) => {
     res.json(newId);
 });
 
+router.post('/add-batch', authMiddleware, async (req, res) => {
+    const { words } = req.body;
+    const userId = req.user.id;
+
+    if (!Array.isArray(words) || words.length === 0) {
+        return res.status(400).json({
+            error: 'words must be a non-empty array'
+        });
+    }
+
+    const normalizedWords = [];
+
+    for (let index = 0; index < words.length; index++) {
+        const item = words[index];
+
+        normalizedWords.push({
+            word: item.word.trim(),
+            explanation: item.explanation.trim(),
+            type: item.type,
+            word_group: 1
+        });
+    }
+
+    const placeholders = normalizedWords.map(() => '(?, ?, ?, ?, ?)').join(', ');
+    const sql = `INSERT INTO words ( word, explanation, type, word_group, user_id ) VALUES ${placeholders}`;
+    
+    const values = normalizedWords.flatMap(item => [item.word, item.explanation, item.type, item.word_group, userId]);
+    
+    try {
+        const result = await connection.execute('vocab_profiler_db', sql, values);
+
+        return res.status(201).json({message: 'Words added successfully',});
+    } catch (error) {
+        console.error('Failed to add words in batch:', error);
+
+        return res.status(500).json({error: 'Failed to add words'});
+    }
+});
+
 router.patch('/update-level', async (req, res) => {
     const { id, word, level, next_review_date, user_id } = req.body;
 
