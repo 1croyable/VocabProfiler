@@ -106,7 +106,7 @@ class WordpackModel {
         this.words = words;
     }
 
-    static fromJSON(value) {
+    static fromJSONText(value) {
         if (typeof value === 'string') {
             try {
                 return new WordpackModel(JSON.parse(value));
