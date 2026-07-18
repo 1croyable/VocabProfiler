@@ -470,7 +470,7 @@ async function changeNotebook(){
     notebookNumbers.value = {};
     try {
         notebookNumbers.value = await axiosWrapper.post('/notebook/word-number', {
-            'notebook_ids': wordStore.currentNotebook ? [wordStore.currentNotebook.id] : []
+            'notebook_ids': wordStore.notebooks.map(notebook => notebook.id)
         });
 
         showChangeNotebookUI.value = true;

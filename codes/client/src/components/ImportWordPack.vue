@@ -1,9 +1,12 @@
 <template>
     <v-dialog :model-value="modelValue" persistent max-width="784" @update:model-value="emit('update:modelValue', $event)">
         <v-card class="rounded-xl" v-if="!wordPack">
-            <v-card-title class="d-flex align-center">
+            <v-card-title class="d-flex align-center mb-3">
                 <v-icon icon="mdi-package-variant" class="mr-3"></v-icon>
                 Import Word Pack
+
+                <v-spacer />
+                <v-btn icon="mdi-close" variant="text" :disabled="loading" @click="emit('update:modelValue', false);"></v-btn>
             </v-card-title>
 
             <v-card-subtitle>
@@ -28,10 +31,6 @@
             <v-card-actions class="px-6 pb-5">
                 <v-spacer></v-spacer>
 
-                <v-btn variant="text" :disabled="loading" @click="emit('update:modelValue', false);">
-                    Cancel
-                </v-btn>
-
                 <v-btn color="primary" variant="flat" prepend-icon="mdi-download" :loading="loading" :disabled="!normalizedId" @click="loadWordPack">
                     Load Word Pack
                 </v-btn>
@@ -40,13 +39,21 @@
 
         <!-- 导入成功后 -->
         <v-card class="rounded-xl d-flex flex-column" max-width="784" height="80vh" v-else>
-            <v-card-title class="elevation-8">
-                <v-alert v-if="wordPack" type="success" variant="outlined" class="mt-2" style="flex: 0 0 100px;">
-                    <p>{{ wordPack.words?.length ?? 0 }} words in this pack.</p>
-                </v-alert>
-            
-                <p style="font-size: 18px;">Configure the words settings as needed.</p>
-                <v-divider class="border-opacity-75" width="70%"></v-divider>
+            <v-card-title class="elevation-8 d-flex flex-column align-center">
+                <div style="width: 100%;" class="d-flex">
+                    <div class="d-flex align-center ga-4">
+                        <v-chip color="teal-lighten-1" class="mb-2" style="font-size: 16px;">
+                            <v-icon>mdi-check</v-icon>
+                        </v-chip>
+                        <p class="text-h6">{{ wordPack.words?.length ?? 0 }} words in this pack.</p>
+                    </div>
+
+                    <v-spacer />
+                    <v-btn icon="mdi-close" variant="text" :disabled="loading" @click="emit('update:modelValue', false);"/>
+                </div>
+                
+                <v-divider class="border-opacity-100 mb-2" :thickness="1" width="120%"></v-divider>
+                <p class="text-body-1 align-self-center text-cyan-darken-3">Configure the words settings as needed.</p>
             </v-card-title>
 
             <v-card-text class="px-5 pb-5 overflow-y-auto hide-scrollbar" style="flex: 1 1 auto; min-height: 0;">
@@ -118,7 +125,16 @@
                     </v-card-text>
                 </v-card>
 
-                <v-btn block color="teal-lighten-1" @click="addToNotebook" :disabled="!canAddToNotebook">{{canAddToNotebook ? 'Add to notebook' : 'there are conflicts'}}</v-btn>
+                <v-btn block variant="tonal" color="orange-darken-3" prepend-icon="mdi-skip-next-circle-outline" class="mb-2" :disabled="loading || !hasDuplicateWords" @click="skipAllDuplicateWords">
+                    Skip All Duplicate Words
+                </v-btn>
+                
+                <v-btn block color="teal-lighten-1" @click="addToNotebook" :disabled="!canAddToNotebook">
+                    {{ words.some(word => word.ifLoad)
+                        ? (canAddToNotebook ? 'Add to notebook' : 'There are conflicts')
+                        : 'No words selected'
+                    }}
+                </v-btn>
             </v-card-text>
         </v-card>
 
@@ -183,6 +199,33 @@ const currentDuplicateWords = computed(() => {
         duplicateConfirmWord.value.type
     );
 });
+
+const hasDuplicateWords = computed(() => {
+    return words.value.some(word => {
+        if (!word.ifLoad || !word.word || !word.type)
+            return false;
+
+        const normalizedWord = wordStore.normalizeInputText(word.word);
+
+        return wordStore.findWords(normalizedWord, word.type).length > 0;
+    });
+});
+
+function skipAllDuplicateWords() {
+    words.value.forEach(word => {
+        if (!word.ifLoad || !word.word || !word.type)
+            return;
+
+        const normalizedWord = wordStore.normalizeInputText(word.word);
+
+        const hasDuplicate = wordStore.findWords(normalizedWord, word.type ).length > 0;
+
+        if (hasDuplicate) {
+            word.ifLoad = false;
+            word.confirmedDuplicateKey = null;
+        }
+    });
+}
 
 function confirmDuplicateImport() {
     if (!duplicateConfirmWord.value)

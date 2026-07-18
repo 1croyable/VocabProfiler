@@ -1,7 +1,7 @@
 <template>
     <v-dialog :model-value="modelValue" persistent max-width="860" @update:model-value="emit('update:modelValue', $event)">
         <v-card class="notebook-dialog rounded-xl d-flex flex-column">
-            <v-card-title class="d-flex align-center px-6 pt-5">
+            <v-card-title class="d-flex align-center px-5 pt-3">
                 <v-icon icon="mdi-notebook-multiple" color="indigo-darken-1" class="mr-3" />
 
                 <div class="overflow-hidden">
