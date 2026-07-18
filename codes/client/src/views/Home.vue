@@ -149,13 +149,23 @@
                                 </v-window>
                             </v-card>
                             <!-- 选项卡下面 -->
-                            <div style="flex: 1 1 0;" class="d-flex flex-column justify-center align-center">
-                                <v-btn @click="showImportUI = true;">Import Word Pack</v-btn>
+                            <div style="flex: 1 1 0;" class="d-flex flex-column justify-end align-center">
+                                <v-btn @click="showImportUI = true;" width="100%" class="mb-1 bg-transparent">
+                                    Import Word Pack
+                                    <template #prepend>
+                                        <v-icon color="cyan-darken-4" size="large">mdi-package-variant</v-icon>
+                                    </template>
+                                </v-btn>
                             </div>
                         </div>
                     </div>
-                    <div id="tools-region" v-if="currCard.length === 0">
-                        <v-btn v-if="!showNotebook" width="77%" class="mr-8" height="50px" @click="showNotebook = true;">View Notebook</v-btn>
+                    <div id="tools-region" v-if="currCard.length === 0" class="bg-transparent">
+                        <v-btn v-if="!showNotebook" width="77%" class="mr-8 bg-transparent" height="50px" @click="showNotebook = true;">
+                            View Notebook
+                            <template #prepend>
+                                <v-icon color="indigo-darken-1" size="large">mdi-notebook-heart</v-icon>
+                            </template>
+                        </v-btn>
                         <v-btn v-else width="77%" class="mr-8" height="50px" @click="backToTab">Back to Tab</v-btn>
 
                         <v-btn id="logout-btn" type="button" icon @click="logout">
