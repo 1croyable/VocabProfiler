@@ -25,12 +25,14 @@
                 <div id="left-bg" class="position-relative display-flex align-center justify-center flex-wrap">
                     <div id="recto-verso">
                         <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
-                            <v-card-title class="text-h6">The recto</v-card-title>
+                            <v-card-title class="d-flex flex-column ga-1">
+                                <p class="overflow-hidden text-truncate">Current: {{ wordStore.currentNotebook.name }}</p>
+                                <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
+                            </v-card-title>
                             <v-card-text>
-                                <v-divider :thickness="2" color="info" length="84%" class="mb-4"></v-divider>
                                 <v-textarea
                                     density="compact"
-                                    label="Saisir le mot sur le recto"
+                                    label="Enter the word on the recto"
                                     variant="underlined"
                                     hide-details
                                     single-line
@@ -44,11 +46,8 @@
                             </v-card-text>
                         </v-card>
                         <v-card width="42%" class="verso-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
-                            <v-card-title>
+                            <v-card-title class="d-flex flex-column ga-1">
                                 <div id="verso-title">
-                                    <p style="display: inline-block;" class="text-h6">
-                                        The verso
-                                    </p>
                                     <div style="display: inline-block;">
                                         <v-radio-group :disabled="alertStore.loading" density="comfortable" inline :hide-details="true" v-model="type">
                                             <v-radio label="active" value="active"></v-radio>
@@ -61,12 +60,12 @@
                                         </div>
                                     </transition>
                                 </div>
+                                <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
                             </v-card-title>
                             <v-card-text>
-                                <v-divider :thickness="2" color="info" length="84%" class="mb-4"></v-divider>
                                 <v-textarea
                                     density="compact"
-                                    label="Saisir l'explication sur le verso"
+                                    label="enter the explanation on the verso"
                                     variant="underlined"
                                     hide-details
                                     single-line
