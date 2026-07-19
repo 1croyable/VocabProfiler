@@ -26,7 +26,7 @@
                     <div id="recto-verso">
                         <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title class="d-flex flex-column ga-1">
-                                <p class="overflow-hidden text-truncate">Current: {{ wordStore.currentNotebook.name }}</p>
+                                <p class="overflow-hidden text-truncate">Current: {{ wordStore.currentNotebook?.name }}</p>
                                 <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
                             </v-card-title>
                             <v-card-text>

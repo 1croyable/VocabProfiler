@@ -97,8 +97,9 @@ router.post('/add-batch', authMiddleware, async (req, res) => {
     }
 });
 
-router.patch('/update-level', async (req, res) => {
-    const { id, word, level, next_review_date, user_id } = req.body;
+router.patch('/update-level', authMiddleware, async (req, res) => {
+    const { id, word, level, next_review_date } = req.body;
+    const user_id = req.user.id;
 
     try {
         await connection.execute('vocab_profiler_db', 'UPDATE words SET level = ?, next_review_date = ? WHERE id = ? AND word = ? AND user_id = ?', [level, next_review_date, id, word, user_id]);

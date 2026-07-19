@@ -187,17 +187,11 @@ export const useWordStore = defineStore('word', {
             this.memoryWindowProgressTempWordList = {};
         },
         async updateWordStatus(word: WordItem, toLevel: number | null = null) {
-            const authStore = useAuthStore();
-            if (!authStore.user?.id) {
-                console.error('User ID is required to enqueue word');
-                return;
-            }
-
             if (word.__isReversed__) return;
             
             const id = word.id;
             const wordData = word.word;
-            const newLevel = toLevel !== null ? toLevel : word.level + 1;
+            const newLevel = toLevel !== null ? toLevel : Math.min(word.level + 1, 6);
             let nextReviewDate = word.next_review_date;
             switch (newLevel) {
                 case 1:
@@ -215,8 +209,11 @@ export const useWordStore = defineStore('word', {
                 case 5:
                     nextReviewDate = dayjs().add(30, 'day').format('YYYY-MM-DD'); // level4 - level 5 30天后复习
                     break;
+                case 6:
+                    nextReviewDate = dayjs().add(60, 'day').format('YYYY-MM-DD'); // level5 - level 6 60天后复习
+                    break;
                 default:
-                    nextReviewDate = null; // level6 不再复习
+                    nextReviewDate = null;
             }
 
             await axiosWrapper.patch('/word/update-level', {
@@ -224,7 +221,6 @@ export const useWordStore = defineStore('word', {
                 word: wordData,
                 level: newLevel,
                 next_review_date: nextReviewDate,
-                user_id: authStore.user.id
             });
 
             const idx = this.words.findIndex(w => w.id === id);
@@ -268,7 +264,7 @@ export const useWordStore = defineStore('word', {
                     this.activeWordsReversedWordFlagWhenLearn[head.explanation] = 1;
                     if (this.activeWordsProgressTempWordListWhenLearn[head.explanation]) {
                         this.activeWordsProgressTempWordListWhenLearn[head.explanation].forEach(async w => {
-                            await this.updateWordStatus(w, authStore.user?.id);
+                            await this.updateWordStatus(w);
                         });
                     }
                 } else {
@@ -277,10 +273,10 @@ export const useWordStore = defineStore('word', {
                             if (!this.activeWordsProgressTempWordListWhenLearn[head.word]) this.activeWordsProgressTempWordListWhenLearn[head.word] = [];
                             this.activeWordsProgressTempWordListWhenLearn[head.word].push(head);
                         } else {
-                            await this.updateWordStatus(head, authStore.user?.id);
+                            await this.updateWordStatus(head);
                         }
                     } else if (head.type === 'passive') {
-                        await this.updateWordStatus(head, authStore.user?.id);
+                        await this.updateWordStatus(head);
                     }
                 }
             }
@@ -325,14 +321,14 @@ export const useWordStore = defineStore('word', {
             const updateTasks: Array<Promise<void>> = [];
 
             if (this.memoryWindow.length > 0) {
-                updateTasks.push(...this.memoryWindow.map(word => this.updateWordStatus(word, authStore.user?.id)));
+                updateTasks.push(...this.memoryWindow.map(word => this.updateWordStatus(word)));
             }
 
             if (!!this.activeWordsProgressTempWordListWhenLearn) {
                 for (const key in this.activeWordsProgressTempWordListWhenLearn) {
                     const wordList = this.activeWordsProgressTempWordListWhenLearn[key];
                     if (wordList && wordList.length > 0) {
-                        updateTasks.push(...wordList.map(word => this.updateWordStatus(word, authStore.user?.id)));
+                        updateTasks.push(...wordList.map(word => this.updateWordStatus(word)));
                     }
                 }
             }

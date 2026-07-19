@@ -320,7 +320,11 @@ async function applyActiveWorstStatusIfReady(item) {
         const finalStatus = Math.max(reversedStatus, forwardStatus);
         if (finalStatus === 3) {
             await wordStore.updateWordStatus(forwardWord, 1);
-        } else {
+        }
+        else if (finalStatus === 2) {
+            await wordStore.updateWordStatus(forwardWord, Math.max(1, forwardWord.level - 1));
+        }
+        else {
             await wordStore.updateWordStatus(forwardWord);
         }
 
@@ -357,7 +361,7 @@ async function reviewFlou(item) {
                 markActiveReviewStatus(item, 2);
                 await applyActiveWorstStatusIfReady(item);
             } else {
-                await wordStore.updateWordStatus(item);
+                await wordStore.updateWordStatus(item, Math.max(1, item.level - 1));
             }
 
             wordStore.putToReviewQueue(item);
