@@ -66,8 +66,9 @@
 
 	<v-dialog v-model="showEditDialog" persistent max-width="480">
 		<v-card class="edit-dialog-card" :loading="loading">
-			<v-card-title class="text-h6 font-weight-bold">
+			<v-card-title class="text-h6 font-weight-bold d-flex justify-space-between">
 				Modify record
+				<v-btn variant="text" :disabled="loading" @click="closeEditDialog" icon="mdi-close"></v-btn>
 			</v-card-title>
 
 			<v-card-text>
@@ -121,12 +122,11 @@
 				<v-spacer />
 				<v-btn :disabled="loading" v-show="showSaveButton" variant="text" @click="saveEdit">Save</v-btn>
 				<v-btn variant="text" :disabled="loading" @click="removeWord">Remove</v-btn>
-				<v-btn variant="text" :disabled="loading" @click="closeEditDialog">Cancel</v-btn>
 			</v-card-actions>
 		</v-card>
 	</v-dialog>
 
-	<Confirm v-model="showRemoveConfirm" title="Remove word" :message="`Are you sure you want to remove this word?`" confirm-text="Remove" @confirm="confirmRemoveWord"></Confirm>
+	<Confirm v-model="showRemoveConfirm" title="Remove word" :message="`Are you sure you want to remove this word?`" confirm-text="Confirm Remove" @confirm="confirmRemoveWord"></Confirm>
 </template>
 
 <script setup>

@@ -31,7 +31,7 @@
                     <v-card-text>
                         <div class="card-content">
                             <div class="align-self-start" style="width: 100%;">
-                                <div class="d-flex flex-space-between" style="width: 100%;">
+                                <div class="d-flex justify-space-between" style="width: 100%;">
                                     <p class="text-h5">Explanation</p>
                                     <v-spacer />
                                     <v-card-actions class="pa-0">
@@ -42,7 +42,7 @@
                             </div>
 
                             <div v-if="!props.reversedWord" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="height: 100%; width: 100%;">
-                                <div v-for="(item, index) in versos" :key="index" class="flex-shrink-0" :style="{ width: versos.length === 1 ? '100%' : '90%', height: '100%' }">
+                                <div v-for="(item, index) in versos" :key="index" class="flex-shrink-0" :style="{ width: versos.length === 1 ? '100%' : '95%', height: '100%' }">
                                     <div class="d-flex" style="width: 100%; height: 100%;">
                                         <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
                                             <div class="d-flex align-center justify-center" style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
@@ -52,14 +52,14 @@
                                             </div>
                                             <div>
                                                 <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
-                                                <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center">
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="learnRetenu(item)" color="green accent-4 mr-3" variant="text">Learned</v-btn>
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="ARevoir(item)" color="red accent-4 ml-3" variant="text">To Review</v-btn>
+                                                <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center px-0">
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="learnRetenu(item)" color="green accent-4" variant="text">Learned</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="ARevoir(item)" color="red accent-4" variant="text">To Review</v-btn>
                                                 </v-card-actions>
-                                                <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center">
+                                                <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center px-0">
                                                     <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewMatriser(item)" color="blue accent-4" variant="text">Mastered</v-btn>
                                                     <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewFlou(item)" color="#BEC832" variant="text">Unclear</v-btn>
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewOublie(item)" color="red accent-4 ml-3" variant="text">Forgotten</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewOublie(item)" color="red accent-4" variant="text">Forgotten</v-btn>
                                                 </v-card-actions>
                                             </div>
                                         </div>
@@ -78,14 +78,14 @@
                                         </div>
                                         <div>
                                             <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
-                                            <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center">
-                                                <v-btn :disabled="alertStore.loading" @click="learnRetenu(props.word[0])" color="green accent-4 mr-3" variant="text">Learned</v-btn>
-                                                <v-btn :disabled="alertStore.loading" @click="ARevoir(props.word[0])" color="red accent-4 ml-3" variant="text">To Review</v-btn>
+                                            <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center px-0">
+                                                <v-btn :disabled="alertStore.loading" @click="learnRetenu(props.word[0])" color="green accent-4" variant="text">Learned</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="ARevoir(props.word[0])" color="red accent-4" variant="text">To Review</v-btn>
                                             </v-card-actions>
-                                            <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center">
+                                            <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center px-0">
                                                 <v-btn :disabled="alertStore.loading" @click="reviewMatriser(props.word[0])" color="blue accent-4" variant="text">Mastered</v-btn>
                                                 <v-btn :disabled="alertStore.loading" @click="reviewFlou(props.word[0])" color="#BEC832" variant="text">Unclear</v-btn>
-                                                <v-btn :disabled="alertStore.loading" @click="reviewOublie(props.word[0])" color="red accent-4 ml-3" variant="text">Forgotten</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="reviewOublie(props.word[0])" color="red accent-4" variant="text">Forgotten</v-btn>
                                             </v-card-actions>
                                         </div>
                                     </div>
