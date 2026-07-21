@@ -37,7 +37,7 @@
 
                 <v-card-text class="overflow-x-auto hide-scrollbar px-6 py-5" style="flex: 1 1 auto;">
                     <div class="d-flex flex-nowrap ga-4">
-                        <div class="d-flex flex-column" v-for="notebook in wordStore.notebooks" :key="notebook.id">
+                        <div class="d-flex flex-column" v-for="(notebook, index) in wordStore.notebooks" :key="notebook.id">
                             <v-sheet width="250" min-width="250" height="210" rounded="xl" 
                                 class="notebook-sheet position-relative pa-5 d-flex flex-column flex-shrink-0"
                                 :class="{ 'current-notebook': notebook.id === wordStore.currentNotebook?.id }"
@@ -45,7 +45,9 @@
                             >
                                 <v-icon icon="mdi-notebook" size="42" color="indigo-darken-1" class="mb-4"/>
     
-                                <p class="text-h6 font-weight-bold text-truncate mb-2">{{ notebook.name }}</p>
+                                <v-text-field v-if="editingNotebookId === notebook.id" ref="editNameInput" v-model="editingNotebookName" variant="underlined" density="compact" hide-details maxlength="64" @click.stop @blur="saveNotebookName(notebook)" @keyup.enter="$event.target.blur()" @keyup.esc="cancelEdit"/>
+                                <p class="text-h6 font-weight-bold text-truncate" :class="(notebook.name !== 'Default Notebook') && index === 0 ? '' : 'mb-2'">{{ notebook.name }}</p>
+                                <p class="font-weight-bold text-truncate mb-2">{{ (notebook.name !== 'Default Notebook') && index === 0 ? '(default)' : '' }}</p>
     
                                 <p class="text-body-2 text-medium-emphasis mb-0">{{ getWordCount(notebook.id) }} {{ getWordCount(notebook.id) === 1 ? 'word' : 'words' }}</p>
     
@@ -57,7 +59,10 @@
     
                                 <p v-else class="text-caption text-medium-emphasis mb-0">Click to switch</p>
                             </v-sheet>
-                            <v-btn v-if="notebook.name !== 'Default Notebook'" class="align-self-center mt-4" icon="mdi-delete-outline" color="error" variant="tonal" :disabled="loading || wordStore.notebooks.length <= 1" @click.stop="openDelete(notebook)"/>
+                            <div class="d-flex justify-center align-center ga-3 mt-2">
+                                <v-btn icon="mdi-pencil" color="indigo-darken-1" variant="tonal" :disabled="loading" @click.stop="openEdit(notebook)"/>
+                                <v-btn v-if="notebook.name !== 'Default Notebook'" icon="mdi-delete-outline" color="error" variant="tonal" :disabled="loading || wordStore.notebooks.length <= 1" @click.stop="openDelete(notebook)"/>
+                            </div>
                         </div>
                     </div>
                 </v-card-text>
@@ -131,7 +136,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
 import { useWordStore } from '@/stores';
 
@@ -155,6 +160,10 @@ const mode = ref('list');
 const newNotebookName = ref('');
 const notebookToDelete = ref(null);
 const deleteConfirmation = ref('');
+
+const editingNotebookId = ref(null);
+const editingNotebookName = ref('');
+const editNameInput = ref(null);
 
 const canCreate = computed(() => newNotebookName.value.trim().length > 0 && !wordStore.notebooks.some(notebook => notebook.name === newNotebookName.value.trim()));
 const canDelete = computed(() => notebookToDelete.value && deleteConfirmation.value.trim() === notebookToDelete.value.name);
@@ -251,6 +260,49 @@ function backToList() {
     newNotebookName.value = '';
     notebookToDelete.value = null;
     deleteConfirmation.value = '';
+}
+
+async function openEdit(notebook) {
+    editingNotebookId.value = notebook.id;
+    editingNotebookName.value = notebook.name;
+
+    await nextTick();
+    editNameInput.value?.[0]?.focus();
+}
+
+async function saveNotebookName(notebook) {
+    if (editingNotebookId.value !== notebook.id)
+    {
+        cancelEdit();
+        return;
+    }
+
+    const name = editingNotebookName.value.trim();
+
+    if (!name || name === notebook.name) {
+        cancelEdit();
+        return;
+    }
+
+    loading.value = true;
+
+    try {
+        await axiosWrapper.patch('/notebook/changeName', {
+            id: notebook.id,
+            name
+        });
+
+        notebook.name = name;
+    }
+    finally {
+        loading.value = false;
+        cancelEdit();
+    }
+}
+
+function cancelEdit() {
+    editingNotebookId.value = null;
+    editingNotebookName.value = '';
 }
 
 watch(

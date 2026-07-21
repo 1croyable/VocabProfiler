@@ -78,4 +78,20 @@ router.delete('/remove/:id', authMiddleware, async (req, res) => {
     }
 });
 
+router.patch('/changeName', authMiddleware, async (req, res) => {
+    const { id, name: newName } = req.body;
+    const userId = req.user.id;
+
+    const sql = "UPDATE notebooks SET name = ? WHERE id = ? AND user_id = ?";
+
+    try {
+        const result = await connection.execute('vocab_profiler_db', sql, [newName, id, userId]);
+    } catch (error) {
+        console.error('Failed to change notebook name:', error);
+        return res.status(500).json({error: 'Failed to change notebook name'});
+    }
+
+    res.json({ message: 'Notebook name changed successfully' });
+});
+
 module.exports = router;
