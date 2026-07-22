@@ -36,8 +36,7 @@ export const useWordStore = defineStore('word', {
                 return;
             }
 
-            if (this.currentNotebook === null)
-            {
+            if (this.currentNotebook === null) {
                 // 查询用户的默认笔记本
                 const notebooks = await axiosWrapper.get<{ id: number; name: string }[]>(`/user/notebooks`);
                 this.currentNotebook = notebooks[0];
@@ -174,10 +173,17 @@ export const useWordStore = defineStore('word', {
         resetQueue() {
             this.reviewQueue = [];
             this.memoryWindow = [];
+
+            this.memoryReviewKey = 0;
+            this.maxMemoryWindowLength = 5;
+
             this.activeWordsReversedWordFlagWhenLearn = {};
+            this.activeWordsProgressTempWordListWhenLearn = {};
+            this.memoryWindowProgressTempWordList = {};
+
             this.reviewActiveWordReversedStatusList = {};
             this.reviewActiveWordStatusList = {};
-            this.memoryWindowProgressTempWordList = {};
+
             this.reviewWordCount = 0;
             this.reviewWordLimitPosition = 0;
         },
@@ -188,7 +194,7 @@ export const useWordStore = defineStore('word', {
         },
         async updateWordStatus(word: WordItem, toLevel: number | null = null) {
             if (word.__isReversed__) return;
-            
+
             const id = word.id;
             const wordData = word.word;
             const newLevel = toLevel !== null ? toLevel : Math.min(word.level + 1, 6);
@@ -230,79 +236,168 @@ export const useWordStore = defineStore('word', {
             }
         },
         dropFromReviewQueue(word: WordItem) {
-            this.reviewQueue = this.reviewQueue.filter(w => w.word !== word.word || w.explanation !== word.explanation);
+            const index = this.reviewQueue.findIndex(w =>
+                w.id === word.id &&
+                !!w.__isReversed__ === !!word.__isReversed__
+            );
+
+            if (index !== -1)
+                this.reviewQueue.splice(index, 1);
+            else
+                console.error(`Word not found in reviewQueue: ${word.word} (${word.explanation})`);
         },
-        putToReviewQueue(word: WordItem){
+        putToReviewQueue(word: WordItem) {
             const newWord = reactive({ ...word }) as WordItem;
             this.dropFromReviewQueue(word);
             this.reviewQueue.push(newWord);
         },
-        async enqueueToWindow(word: WordItem, isNew: Boolean, complex: Boolean = false){
+        async enqueueToWindow(word: WordItem, isNew: Boolean, complex: Boolean = false) {
             const authStore = useAuthStore();
             if (!authStore.user?.id) {
                 console.error('User ID is required to enqueue word');
                 return;
             }
 
-            let head = null;
+            const heads: WordItem[] = [];
 
+            // 同一个多义词的额外释义不额外占用基础窗口名额
             if (complex && this.maxMemoryWindowLength >= 5) {
-                const existingIndex = this.memoryWindow.findIndex(w => w.word === word.word);
+                const existingIndex = this.memoryWindow.findIndex(
+                    item =>
+                        item.word === word.word &&
+                        item.type === word.type &&
+                        item.notebook_id === word.notebook_id &&
+                        !!item.__isReversed__ === !!word.__isReversed__
+                );
+
                 if (existingIndex !== -1) {
                     this.maxMemoryWindowLength++;
                 }
             }
 
-            if (this.memoryWindow.length === this.maxMemoryWindowLength && isNew)
-                head = this.memoryWindow.shift();
+            // 窗口已满时，移除最旧单词的整组释义
+            if (
+                this.memoryWindow.length >= this.maxMemoryWindowLength &&
+                isNew
+            ) {
+                const oldestWord = this.memoryWindow[0];
+
+                const isSameOldestGroup = (item: WordItem) =>
+                    item.word === oldestWord.word &&
+                    item.type === oldestWord.type &&
+                    item.notebook_id === oldestWord.notebook_id &&
+                    !!item.__isReversed__ === !!oldestWord.__isReversed__;
+
+                const removedWords = this.memoryWindow.filter(isSameOldestGroup);
+
+                this.memoryWindow = this.memoryWindow.filter(
+                    item => !isSameOldestGroup(item)
+                );
+
+                heads.push(...removedWords);
+
+                // 收回该多义词曾经增加的额外窗口名额
+                this.maxMemoryWindowLength = Math.max(
+                    5,
+                    this.maxMemoryWindowLength - Math.max(0, removedWords.length - 1)
+                );
+            }
 
             const newWord = reactive({ ...word }) as WordItem;
             this.memoryWindow.push(newWord);
 
-            if (head && isNew) {
+            // 处理所有被移出窗口的释义
+            for (const head of heads) {
                 if (head.__isReversed__) {
                     this.activeWordsReversedWordFlagWhenLearn[head.explanation] = 1;
-                    if (this.activeWordsProgressTempWordListWhenLearn[head.explanation]) {
-                        this.activeWordsProgressTempWordListWhenLearn[head.explanation].forEach(async w => {
-                            await this.updateWordStatus(w);
-                        });
+
+                    const pendingWords =
+                        this.activeWordsProgressTempWordListWhenLearn[head.explanation];
+
+                    if (pendingWords?.length) {
+                        await Promise.all(
+                            pendingWords.map(w => this.updateWordStatus(w))
+                        );
+
+                        delete this.activeWordsProgressTempWordListWhenLearn[
+                            head.explanation
+                        ];
                     }
-                } else {
-                    if (head.type === 'active') {
-                        if (this.activeWordsReversedWordFlagWhenLearn[head.word] !== 1) {
-                            if (!this.activeWordsProgressTempWordListWhenLearn[head.word]) this.activeWordsProgressTempWordListWhenLearn[head.word] = [];
-                            this.activeWordsProgressTempWordListWhenLearn[head.word].push(head);
-                        } else {
-                            await this.updateWordStatus(head);
+                }
+                else if (head.type === 'active') {
+                    if (
+                        this.activeWordsReversedWordFlagWhenLearn[head.word] !== 1
+                    ) {
+                        if (!this.activeWordsProgressTempWordListWhenLearn[head.word]) {
+                            this.activeWordsProgressTempWordListWhenLearn[head.word] = [];
                         }
-                    } else if (head.type === 'passive') {
+
+                        this.activeWordsProgressTempWordListWhenLearn[head.word].push(
+                            head
+                        );
+                    }
+                    else {
                         await this.updateWordStatus(head);
                     }
                 }
+                else if (head.type === 'passive') {
+                    await this.updateWordStatus(head);
+                }
             }
         },
-        isWindowEmpty(){
+        isWindowEmpty() {
             return this.memoryWindow.length === 0;
         },
-        isWindowEnd(){
-            const result = this.memoryReviewKey === this.memoryWindow.length;
+        isWindowEnd() {
+            const result = this.memoryReviewKey >= this.memoryWindow.length;
+
             if (result) {
                 this.memoryReviewKey = 0;
                 this.memoryWindowProgressTempWordList = {};
             }
+
             return result;
         },
         peekMemory() {
-            const word = this.memoryWindow[this.memoryReviewKey];
-            this.memoryReviewKey++;
+            if (this.memoryReviewKey < 0 || this.memoryReviewKey >= this.memoryWindow.length)
+                return null;
+
+            const word = this.memoryWindow[this.memoryReviewKey++];
+
             return word;
         },
-        aRevoirMQ(word: WordItem) {
+        moveBackToReviewQueue(word: WordItem) {
+            const isSameGroup = (item: WordItem) =>
+                item.word === word.word
+                && item.type === word.type
+                && item.notebook_id === word.notebook_id
+                && !!item.__isReversed__ === !!word.__isReversed__;
+
+            // 把单词存入 reviewQueue
             const newWord = reactive({ ...word }) as WordItem;
             this.reviewQueue.push(newWord);
-            this.memoryReviewKey--;
-            this.memoryWindow = this.memoryWindow.filter(w => !(w.word === word.word && w.explanation === word.explanation));
-            this.maxMemoryWindowLength = Math.max(5, this.maxMemoryWindowLength - 1);
+
+
+            // 找到并移除 memoryWindow 的单词
+
+            const removedIndex = this.memoryWindow.findIndex(w => w.id === word.id && w.word === word.word && w.explanation === word.explanation && !!w.__isReversed__ === !!word.__isReversed__);
+
+            if (removedIndex !== -1) {
+                // 移除之前还有同组词，说明当前词占用了一个多义词扩展名额
+                const usedExtraSlot = this.memoryWindow.some((item, index) => index !== removedIndex && isSameGroup(item));
+
+                if (removedIndex < this.memoryReviewKey) {
+                    this.memoryReviewKey--;
+                }
+
+                this.memoryWindow.splice(removedIndex, 1);
+
+                if (usedExtraSlot) {
+                    this.maxMemoryWindowLength = Math.max(5, this.maxMemoryWindowLength - 1);
+                }
+            }
+
+            this.memoryReviewKey = Math.max(0, Math.min(this.memoryReviewKey, this.memoryWindow.length));
 
             if (this.memoryWindowProgressTempWordList[word.word]) {
                 this.memoryWindowProgressTempWordList[word.word] = this.memoryWindowProgressTempWordList[word.word].filter(w => w.explanation !== word.explanation);
@@ -311,7 +406,7 @@ export const useWordStore = defineStore('word', {
                 }
             }
         },
-        async updateRestMemory(){
+        async updateRestMemory() {
             const authStore = useAuthStore();
             if (!authStore.user?.id) {
                 console.error('User ID is required to update memory words');

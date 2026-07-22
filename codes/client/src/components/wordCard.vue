@@ -42,7 +42,7 @@
                             </div>
 
                             <div v-if="!props.reversedWord" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="height: 100%; width: 100%;">
-                                <div v-for="(item, index) in versos" :key="index" class="flex-shrink-0" :style="{ width: versos.length === 1 ? '100%' : '95%', height: '100%' }">
+                                <div v-for="(item, index) in versos" :key="`${item.id}-${item.__isReversed__ ? 'reverse' : 'forward'}`" class="flex-shrink-0" :style="{ width: versos.length === 1 ? '100%' : '95%', height: '100%' }">
                                     <div class="d-flex" style="width: 100%; height: 100%;">
                                         <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
                                             <div class="d-flex align-center justify-center" style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
@@ -53,8 +53,8 @@
                                             <div>
                                                 <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                                                 <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center px-0">
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="learnRetenu(item)" color="green accent-4" variant="text">Learned</v-btn>
-                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="ARevoir(item)" color="red accent-4" variant="text">To Review</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="Learned(item)" color="green accent-4" variant="text">Learned</v-btn>
+                                                    <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="MoveToReviewQueue(item)" color="red accent-4" variant="text">To Review</v-btn>
                                                 </v-card-actions>
                                                 <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center px-0">
                                                     <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewMatriser(item)" color="blue accent-4" variant="text">Mastered</v-btn>
@@ -79,8 +79,8 @@
                                         <div>
                                             <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                                             <v-card-actions v-if="props.cardType === 'learn'" class="d-flex justify-center px-0">
-                                                <v-btn :disabled="alertStore.loading" @click="learnRetenu(props.word[0])" color="green accent-4" variant="text">Learned</v-btn>
-                                                <v-btn :disabled="alertStore.loading" @click="ARevoir(props.word[0])" color="red accent-4" variant="text">To Review</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="Learned(props.word[0])" color="green accent-4" variant="text">Learned</v-btn>
+                                                <v-btn :disabled="alertStore.loading" @click="MoveToReviewQueue(props.word[0])" color="red accent-4" variant="text">To Review</v-btn>
                                             </v-card-actions>
                                             <v-card-actions v-else-if="props.cardType === 'review'" class="d-flex justify-center px-0">
                                                 <v-btn :disabled="alertStore.loading" @click="reviewMatriser(props.word[0])" color="blue accent-4" variant="text">Mastered</v-btn>
@@ -259,30 +259,54 @@ watch(
     { deep: true }
 );
 
-async function learnRetenu(item) {
-    alertStore.setLoading(true);
+async function Learned(item) {
+    if (alertStore.loading || !item.__needBtn__)
+        return;
+
     try {
-        const index = wordStore.reviewQueue.findIndex(w => w.id === item.id && w.word === item.word);
-        if (index !== -1) {
+        alertStore.setLoading(true);
+
+        const isInReviewQueue = wordStore.reviewQueue.some(w => w.id === item.id && !!w.__isReversed__ === !!item.__isReversed__);
+
+        if (isInReviewQueue) {
             wordStore.dropFromReviewQueue(item);
             await wordStore.enqueueToWindow(item, props.learnStatus === 'new', versos.value.length > 1);
-        } else {
-            if (versos.value.length > 1) {
-                wordStore.memoryWindowProgressTempWordList[item.word] = wordStore.memoryWindowProgressTempWordList[item.word] || [];
-                wordStore.memoryWindowProgressTempWordList[item.word].push(item);
-            }
         }
+        else if (versos.value.length > 1) {
+            const progressList = wordStore.memoryWindowProgressTempWordList[item.word] ?? [];
+
+            const alreadyRecorded = progressList.some(w => w.id === item.id && !!w.__isReversed__ === !!item.__isReversed__);
+
+            if (!alreadyRecorded)
+                progressList.push(item);
+
+            wordStore.memoryWindowProgressTempWordList[item.word] = progressList;
+        }
+        
         item.__needBtn__ = false;
-    } finally {
+    } 
+    catch (error) {
+        console.error('Failed to mark word as learned:', error);
+    }
+    finally {
         alertStore.setLoading(false);
     }
 }
 
-function ARevoir(item) {
-    // 也要根据位于词汇队列还是记忆队列区分
-    const index = wordStore.reviewQueue.findIndex(w => w.id === item.id && w.word === item.word);
-    if (index !== -1) wordStore.putToReviewQueue(item);
-    else wordStore.aRevoirMQ(item);
+function MoveToReviewQueue(item) {
+    // 要根据位于词汇队列还是记忆队列区分
+    if (alertStore.loading || !item.__needBtn__)
+        return;
+
+    const isInReviewQueue = wordStore.reviewQueue.some(w =>
+        w.id === item.id &&
+        !!w.__isReversed__ === !!item.__isReversed__
+    );
+
+    if (isInReviewQueue)
+        wordStore.putToReviewQueue(item);
+    else
+        wordStore.moveBackToReviewQueue(item);
 
     item.__needBtn__ = false;
 }
@@ -365,7 +389,10 @@ async function reviewFlou(item) {
             }
 
             wordStore.putToReviewQueue(item);
+
+            wordStore.reviewWordLimitPosition = Math.max(0, wordStore.reviewWordLimitPosition - 1);
             wordStore.reviewWordCount += 1;
+
             item.__needBtn__ = false;
         } finally {
             alertStore.setLoading(false);
@@ -385,6 +412,8 @@ async function reviewOublie(item) {
             }
 
             wordStore.putToReviewQueue(item);
+
+            wordStore.reviewWordLimitPosition = Math.max(0, wordStore.reviewWordLimitPosition - 1);
             wordStore.reviewWordCount += 1;
             item.__needBtn__ = false;
             console.log("忘记了，现在的队列", JSON.stringify(wordStore.reviewQueue));

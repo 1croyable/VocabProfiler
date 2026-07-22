@@ -1,26 +1,6 @@
 <template>
     <v-container fluid class="pa-0" id="container">
         <v-row no-gutters>
-            <v-overlay v-model="rajouterOverlay" class="align-center d-flex justify-center" contained>
-                <v-card width="60vw">
-                    <v-card-title style="font-size: 20px; color: grey;">"{{ rectoText }}" has already been added.</v-card-title>
-                    <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
-                        <v-sheet v-for="(item, index) in duplicateWords" :key="index" width="40%" height="25vh" class="flex-shrink-0 mr-4">
-                            <p>Explication {{ index + 1 }}</p>
-                            <v-divider :thickness="1" color="info" class="my-2"></v-divider>
-                            <p class="preserve-breaks">{{ item.explanation }}</p>
-                        </v-sheet>
-                    </div>
-                    <v-card-actions>
-                        <v-btn color="light-green-darken-4" @click="ajouter" :disabled="alertStore.loading">
-                            Add Anyway
-                        </v-btn>
-                        <v-btn color="success" @click="close" :disabled="alertStore.loading">
-                            Cancel
-                        </v-btn>
-                    </v-card-actions>
-                </v-card>
-            </v-overlay>
             <v-col cols="12" md="8" class="pa-0">
                 <div id="left-bg" class="position-relative display-flex align-center justify-center flex-wrap">
                     <div id="recto-verso">
@@ -47,18 +27,21 @@
                         </v-card>
                         <v-card width="42%" class="verso-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title class="d-flex flex-column ga-1">
-                                <div id="verso-title">
-                                    <div style="display: inline-block;">
-                                        <v-radio-group :disabled="alertStore.loading" density="comfortable" inline :hide-details="true" v-model="type">
-                                            <v-radio label="active" value="active"></v-radio>
-                                            <v-radio label="passive" value="passive"></v-radio>
-                                        </v-radio-group>
-                                    </div>
-                                    <transition name="fly-in-left">
-                                        <div style="display: inline-block;" v-show="type && normalizedRectoText && normalizedVersoText">
-                                            <v-btn @click="handleAdd" rounded="xl" size="small" color="black" :disabled="alertStore.loading">Add</v-btn>
+                                <div class="d-flex flex-column">
+                                    <div id="verso-title">
+                                        <div style="display: inline-block;">
+                                            <v-radio-group :disabled="alertStore.loading" density="comfortable" inline :hide-details="true" v-model="type">
+                                                <v-radio label="active" value="active"></v-radio>
+                                                <v-radio label="passive" value="passive"></v-radio>
+                                            </v-radio-group>
                                         </div>
-                                    </transition>
+                                        <transition name="fly-in-left">
+                                            <div style="display: inline-block;" v-show="type && normalizedRectoText && normalizedVersoText">
+                                                <v-btn @click="HandleAdd" rounded="xl" size="small" color="black" :disabled="alertStore.loading || exactDuplicateExists">Add</v-btn>
+                                            </div>
+                                        </transition>
+                                    </div>
+                                    <v-chip v-if="exactDuplicateExists" color="red" text-color="white" class="align-self-center">Exact duplicate found</v-chip>
                                 </div>
                                 <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
                             </v-card-title>
@@ -76,7 +59,7 @@
                                     clearable
                                     v-model="versoText"
                                 ></v-textarea>
-                                <v-btn :disabled="alertStore.loading" class="mt-2" color="black" v-show="rectoText && versoText" @click="swap" block>Swap the front and back</v-btn>
+                                <v-btn :disabled="alertStore.loading" class="mt-2" color="black" v-show="rectoText && versoText" @click="Swap" block>Swap the front and back</v-btn>
                             </v-card-text>
                         </v-card>
                     </div>
@@ -87,18 +70,18 @@
                     <div id="main-region" class="overflow-y-scroll hide-scroll-bar">
                         <!-- 背单词界面 -->
                         <div v-if="currCard.length > 0">
-                            <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" color="cyan-darken-4" block @click="backToTab" :disabled="alertStore.loading">Back</v-btn>
+                            <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" color="cyan-darken-4" block @click="BackToTab" :disabled="alertStore.loading">Back</v-btn>
 
                             <wordCard 
                             :cardType="cardCurrType"
                             :learnStatus="learnStatus"
                             :word="currCard"
                             :reversedWord="reversedWordFlag"
-                            @nextCard="nextCard"
+                            @nextCard="NextCard"
                             ></wordCard>
                         </div>
                         <!-- 单词表界面 -->
-                        <NoteBook v-else-if="showNotebook" @backToTab="backToTab"></NoteBook>
+                        <NoteBook v-else-if="showNotebook" @backToTab="BackToTab"></NoteBook>
                         <!-- 主界面 -->
                         <div v-else class="d-flex flex-column" style="height: 100%;">
                             <!-- 选项卡 -->
@@ -114,14 +97,14 @@
                                     <v-window-item value="a">
                                         <v-card class="pa-5">
                                             <div v-if="wordStore && wordStore.activeWordsStruct.wordsToLearnCount > 0">
-                                                <StartButton @init="initReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " words" }} </StartButton>
+                                                <StartButton @init="InitReviewQueue('active,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.activeWordsStruct.wordsToLearnCount + " words" }} </StartButton>
                                             </div>
                                             <div v-else>
                                                 <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
                                             </div>
 
                                             <div v-if="wordStore && wordStore.activeWordsStruct.wordsToReviewCount > 0">
-                                                <StartButton @init="initReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.activeWordsStruct.wordsToReviewCount + " words" }} </StartButton>
+                                                <StartButton @init="InitReviewQueue('active,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.activeWordsStruct.wordsToReviewCount + " words" }} </StartButton>
                                             </div>
                                             <div v-else>
                                                 <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
@@ -131,14 +114,14 @@
                                     <v-window-item value="p">
                                         <v-card class="pa-5">
                                             <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToLearnCount > 0">
-                                                <StartButton @init="initReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " words" }} </StartButton>
+                                                <StartButton @init="InitReviewQueue('passive,new')" preIcon="mdi-pen" color="purple-darken-2" :loading="alertStore.loading">NEW: {{ wordStore.passiveWordsStruct.wordsToLearnCount + " words" }} </StartButton>
                                             </div>
                                             <div v-else>
                                                 <StartButton preIcon="mdi-pen" color="grey" :loading="alertStore.loading">No new words</StartButton>
                                             </div>
 
                                             <div v-if="wordStore && wordStore.passiveWordsStruct.wordsToReviewCount > 0">
-                                                <StartButton @init="initReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " words" }} </StartButton>
+                                                <StartButton @init="InitReviewQueue('passive,review')" preIcon="mdi-refresh" color="lime-darken-3" :loading="alertStore.loading">TO REVIEW: {{ wordStore.passiveWordsStruct.wordsToReviewCount + " words" }} </StartButton>
                                             </div>
                                             <div v-else>
                                                 <StartButton preIcon="mdi-refresh" color="grey" :loading="alertStore.loading">No words to review</StartButton>
@@ -151,7 +134,7 @@
                             <div style="flex: 1 1 0;" class="d-flex flex-column justify-end align-center">
                                 <!-- 笔记本管理 -->
                                 <div class="d-flex align-center" style="width: 100%;">
-                                    <v-btn @click="changeNotebook" width="60%" height="50" class="bg-transparent align-self-start elevation-1">
+                                    <v-btn @click="ChangeNotebook" width="60%" height="50" class="bg-transparent align-self-start elevation-1">
                                         Change Notebook
                                         <template #prepend>
                                             <v-icon color="orange-darken-4" size="x-large">mdi-swap-horizontal</v-icon>
@@ -163,7 +146,7 @@
                                     </div>
                                 </div>
                                 <!-- 包管理 -->
-                                <v-btn @click="showImport" width="100%" class="mb-1 bg-transparent">
+                                <v-btn @click="ShowImport" width="100%" class="mb-1 bg-transparent">
                                     Import Word Pack
                                     <template #prepend>
                                         <v-icon color="cyan-darken-4" size="large">mdi-package-variant</v-icon>
@@ -171,14 +154,14 @@
                                 </v-btn>
                                 <!-- 笔记本查看和登出 -->
                                 <div id="tools-region" class="bg-transparent" style="width: 100%;">
-                                    <v-btn width="77%" class="mr-8 bg-transparent" height="50px" @click="viewNoteBook">
+                                    <v-btn width="77%" class="mr-8 bg-transparent" height="50px" @click="HandleViewNoteBook">
                                         View Notebook
                                         <template #prepend>
                                             <v-icon color="indigo-darken-1" size="large">mdi-notebook-heart</v-icon>
                                         </template>
                                     </v-btn>
 
-                                    <v-btn id="logout-btn" type="button" icon @click="logout">
+                                    <v-btn id="logout-btn" type="button" icon @click="HandleLogout">
                                         <img src="/logout.svg" alt="Log Out" class="logout-icon" />
                                     </v-btn>
                                 </div>
@@ -193,7 +176,9 @@
 
         <ImportWordPackDialog v-model="showImportUI"/>
 
-        <Confirm v-model="showLogoutConfirm" title="Log Out" message="Are you sure you want to log out?" confirm-text="Confirm" cancel-text="Cancel" @confirm="confirmLogout"/>
+        <Confirm v-model="showLogoutConfirm" title="Log Out" message="Are you sure you want to log out?" confirm-text="Confirm" cancel-text="Cancel" @confirm="DoLogout"/>
+
+        <RepeatConfirm v-model="repeatConfirmDialog" :duplicateWords="duplicateWords" :loading="alertStore.loading" @add="Add" @cancel="Close"/>
     </v-container>
 </template>
 
@@ -208,6 +193,7 @@ import Confirm from '@/components/Confirm.vue';
 import NoteBook from '@/components/NoteBook.vue';
 import ImportWordPackDialog from '@/components/ImportWordPack.vue';
 import ChangeNotebookDialog from '@/components/ChangeNotebook.vue';
+import RepeatConfirm from '@/components/RepeatConfirm.vue';
 
 const type = ref("active");
 const rectoText = ref("");
@@ -216,7 +202,7 @@ const tab = ref("a");
 const currCard = ref([]);
 const cardCurrType = ref("");
 const learnStatus = ref("");
-const rajouterOverlay = ref(false);
+const repeatConfirmDialog = ref(false);
 const reversedWordFlag = ref(false);
 const showLogoutConfirm = ref(false);
 const showNotebook = ref(false);
@@ -231,29 +217,30 @@ const wordStore = useWordStore();
 const alertStore = useAlertStore();
 const authStore = useAuthStore();
 
-function normalizeInputChunk(value) {
-    return wordStore.normalizeInputText(value);
-}
-
-const normalizedRectoText = computed(() => normalizeInputChunk(rectoText.value));
-const normalizedVersoText = computed(() => normalizeInputChunk(versoText.value));
+const normalizedRectoText = computed(() => wordStore.normalizeInputText(rectoText.value));
+const normalizedVersoText = computed(() => wordStore.normalizeInputText(versoText.value));
 const duplicateWords = computed(() => wordStore.findWords(normalizedRectoText.value, type.value));
+const exactDuplicateExists = computed(() =>
+    duplicateWords.value.some(word => 
+        wordStore.normalizeInputText(word.explanation).toLocaleLowerCase() === normalizedVersoText.value.toLocaleLowerCase()
+    )
+);
 
 let reviewWordLength = 0;
 
-async function handleAdd() {
-    if (!normalizedRectoText.value || !normalizedVersoText.value) return;
+async function HandleAdd() {
+    if (!normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value) return;
     // 确认词汇存在与否，如果已存在，就询问是否重复添加
     const existingWord = wordStore.findWord(normalizedRectoText.value, type.value);
     if (existingWord) {
-        rajouterOverlay.value = true;
+        repeatConfirmDialog.value = true;
     }
     else {
-        await ajouter();
+        await Add();
     }
 }
 
-async function ajouter(){
+async function Add(){
     if (!normalizedRectoText.value || !normalizedVersoText.value) return;
     alertStore.setLoading(true);
     try {
@@ -263,29 +250,27 @@ async function ajouter(){
             type: type.value,
             notebook_id: wordStore.currentNotebook.id,
         });
-        rajouterOverlay.value = false;
-        rectoText.value = "";
-        versoText.value = "";
-        type.value = "active";
     } finally {
         alertStore.setLoading(false);
+        
+        Close();
     }
 }
 
-function close(){
-    rajouterOverlay.value = false;
+function Close(){
+    repeatConfirmDialog.value = false;
     rectoText.value = "";
     versoText.value = "";
     type.value = "active";
 }
 
-function swap(){
+function Swap(){
     const temp = rectoText.value;
     rectoText.value = versoText.value;
     versoText.value = temp;
 }
 
-async function initReviewQueue(type) {
+async function InitReviewQueue(type) {
     if (typeof type === 'string' && type.match(/^(active|passive),(new|review)$/)) {
         alertStore.setLoading(true);
         try {
@@ -296,7 +281,7 @@ async function initReviewQueue(type) {
             wordStore.reviewWordLimitPosition = reviewWordLength;
             const nextWord = wordStore.peekCurrent();
             
-            currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
+            currCard.value = await ConbineShowWords(nextWord, wordStore.reviewQueue);
             wordStore.reviewWordCount = 0;
         } finally {
             alertStore.setLoading(false);
@@ -304,7 +289,7 @@ async function initReviewQueue(type) {
     }
 }
 
-async function nextCard() {
+async function NextCard() {
     // console.log("进入nextCard");
     alertStore.setLoading(true);
     currCard.value = [{
@@ -338,33 +323,36 @@ async function nextCard() {
                 if (wordStore.isWindowEnd()) {
                     // console.log("memory窗口看完了，继续看word队列，这个时候下一个词汇是从word队列里取出：");
                     nextWord = wordStore.peekCurrent();
-                    if (!nextWord) await closeCard();
-                    else currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
+                    if (!nextWord) await CloseCard();
+                    else currCard.value = await ConbineShowWords(nextWord, wordStore.reviewQueue);
                 }
                 else {
                     // 如果取出的词汇在前面有同样的word，那么在前面已经看过的部分肯定一起展示了这个当前的词汇，需要跳过本次nextCard
                     nextWord = wordStore.peekMemory();
-                    if (wordStore.memoryWindowProgressTempWordList[nextWord.word] && wordStore.memoryWindowProgressTempWordList[nextWord.word].some(w => w.explanation === nextWord.explanation)){
-                        // console.log("这个词汇之前复习过了，跳过")
-                        await nextCard();
+
+                    const progressList = wordStore.memoryWindowProgressTempWordList[nextWord.word];
+
+                    if (progressList?.some(w => w.id === nextWord.id && !!w.__isReversed__ === !!nextWord.__isReversed__)) {
+                        await NextCard();
                         return;
                     }
-                    currCard.value = await conbineShowWords(nextWord, wordStore.memoryWindow);
+
+                    currCard.value = await ConbineShowWords(nextWord, wordStore.memoryWindow);
                 }
             } else {
                 // console.log("learn模式下但window空了，直接从word队列里取出单词：");
                 nextWord = wordStore.peekCurrent();
-                if (!nextWord) await closeCard();
-                else currCard.value = await conbineShowWords(nextWord, wordStore.reviewQueue);
+                if (!nextWord) await CloseCard();
+                else currCard.value = await ConbineShowWords(nextWord, wordStore.reviewQueue);
             }
         }
         else {
             // console.log("当前卡片类型是review，不需要window队列");
             nextWord = wordStore.peekCurrent();
             // console.log("[review]阶段，从review队列取出的下一个词汇：", nextWord, "当前的review队列：", wordStore.reviewQueue);
-            if (!nextWord) await closeCard();
+            if (!nextWord) await CloseCard();
             else {
-                const showWords = await conbineShowWords(nextWord, wordStore.reviewQueue);
+                const showWords = await ConbineShowWords(nextWord, wordStore.reviewQueue);
                 // console.log("[review]阶段，合并展示的词汇：", showWords);
                 const reviewQueueRelearnWords = wordStore.reviewQueue.slice(wordStore.reviewWordLimitPosition, wordStore.reviewQueue.length); // 复习队列中需要重新学习的词汇（即之前因为flou或者oublié被放到后面的词汇）
                 // console.log("[review]阶段，复习队列中需要重新学习的词汇：", reviewQueueRelearnWords);
@@ -382,7 +370,7 @@ async function nextCard() {
     }
 }
 
-async function conbineShowWords(motherWord, currentQueue){
+async function ConbineShowWords(motherWord, currentQueue){
     let relatedWords;
     
     if (!motherWord.__isReversed__) {
@@ -414,7 +402,7 @@ async function conbineShowWords(motherWord, currentQueue){
     }
 }
 
-async function backToTab() {
+async function BackToTab() {
     currCard.value = [];
     showNotebook.value = false;
     reviewWordLength = 0;
@@ -431,7 +419,7 @@ async function backToTab() {
     }
 }
 
-async function closeCard() {
+async function CloseCard() {
     alertStore.setLoading(true);
     try {
         if (learnStatus.value === 'new') {
@@ -441,7 +429,7 @@ async function closeCard() {
             wordStore.cleanupReviewTemp();
         }
 
-        await backToTab();
+        await BackToTab();
     } finally {
         alertStore.setLoading(false);
     }
@@ -455,15 +443,15 @@ onMounted(async () => {
     await wordStore.fetchWords();
 })
 
-function logout() {
+function HandleLogout() {
     showLogoutConfirm.value = true;
 }
 
-function confirmLogout() {
+function DoLogout() {
     authStore.logout();
 }
 
-async function changeNotebook(){
+async function ChangeNotebook(){
     if (alertStore.loading) return;
 
     notebookNumbers.value = {};
@@ -478,13 +466,13 @@ async function changeNotebook(){
     }
 }
 
-function showImport() {
+function ShowImport() {
     if (alertStore.loading) return;
 
     showImportUI.value = true;
 }
 
-function viewNoteBook() {
+function HandleViewNoteBook() {
     if (alertStore.loading) return;
 
     showNotebook.value = true;
@@ -565,10 +553,6 @@ function viewNoteBook() {
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
-}
-
-.preserve-breaks {
-    white-space: pre-line;
 }
 
 #verso-title {
