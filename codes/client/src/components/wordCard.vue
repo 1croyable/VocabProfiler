@@ -165,16 +165,7 @@ const rectos = computed(() => {
     }
 
     // 正向卡片：同一个基础词汇只在正面显示一次
-    const seenWords = new Set();
-
-    return props.word.filter(item => {
-        if (seenWords.has(item.word)) {
-            return false;
-        }
-
-        seenWords.add(item.word);
-        return true;
-    });
+    return props.word.length > 0 ? [{ word: props.word[0].word }] : [];
 })
 
 const isLoadingPlaceholder = computed(() => {

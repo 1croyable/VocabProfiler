@@ -434,8 +434,10 @@ export const useWordStore = defineStore('word', {
             const motherWord = this.words.find(w => w.id === id);
             if (!motherWord) return [] as WordList;
 
+            const normalizedWord = this.normalizeInputText(motherWord.word).toLowerCase();
+
             return this.words.filter(w =>
-                w.word === motherWord.word &&
+                this.normalizeInputText(w.word).toLowerCase() === normalizedWord &&
                 w.type === motherWord.type &&
                 w.notebook_id === motherWord.notebook_id
             );
