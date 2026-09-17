@@ -36,22 +36,25 @@ router.post('/register', async (req, res) => {
         if (!username || !password)
             return res.status(400).json({ error: 'username and password are required' });
 
+        const trimmedUsername = username.trim();
+        const trimmedPassword = password.trim();
+
         const existing = await connection.execute(
             'vocab_profiler_db',
             'SELECT id FROM users WHERE username = ? LIMIT 1',
-            [username]
+            [trimmedUsername]
         );
 
         if (existing.length > 0)
             return res.status(409).json({ error: 'Username already exists' });
 
-        const passwordHash = await bcrypt.hash(password, 12);
+        const passwordHash = await bcrypt.hash(trimmedPassword, 12);
 
         // 插入新用户
         const result = await connection.execute(
             'vocab_profiler_db',
             'INSERT INTO users (username, password) VALUES (?, ?)',
-            [username, passwordHash]
+            [trimmedUsername, passwordHash]
         );
         // 创建默认笔记本
         await connection.execute(
@@ -62,7 +65,7 @@ router.post('/register', async (req, res) => {
 
         const user = {
             id: result.insertId,
-            username,
+            username: trimmedUsername,
             role: 'user'
         };
 
@@ -82,10 +85,16 @@ router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        if (!username || !password)
+            return res.status(400).json({ error: 'username and password are required' });
+
+        const trimmedUsername = username.trim();
+        const trimmedPassword = password.trim();
+        
         const users = await connection.execute(
             'vocab_profiler_db',
             'SELECT id, username, password, role FROM users WHERE username = ? LIMIT 1',
-            [username]
+            [trimmedUsername]
         );
 
         if (users.length === 0)
@@ -93,7 +102,7 @@ router.post('/login', async (req, res) => {
 
         const user = users[0];
 
-        const ok = await bcrypt.compare(password, user.password);
+        const ok = await bcrypt.compare(trimmedPassword, user.password);
 
         if (!ok)
             return res.status(401).json({ error: 'Invalid username or password' });
@@ -106,7 +115,7 @@ router.post('/login', async (req, res) => {
 
         const safeUser = {
             id: user.id,
-            username: user.username,
+            username: trimmedUsername,
             role: user.role
         };
 
