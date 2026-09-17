@@ -125,14 +125,15 @@
                     </v-card-text>
                 </v-card>
 
-                <v-btn block variant="tonal" color="orange-darken-3" prepend-icon="mdi-skip-next-circle-outline" class="mb-2" :disabled="loading || !hasDuplicateWords" @click="skipAllDuplicateWords">
+                <v-btn v-if="hasDuplicateWords" block variant="tonal" color="orange-darken-3" prepend-icon="mdi-skip-next-circle-outline" class="mb-2" :disabled="loading" @click="skipAllDuplicateWords">  
                     Skip All Duplicate Words
                 </v-btn>
                 
                 <v-btn block color="teal-lighten-1" @click="addToNotebook" :disabled="!canAddToNotebook">
-                    {{ words.some(word => word.ifLoad)
-                        ? (canAddToNotebook ? 'Add to notebook' : 'There are conflicts')
-                        : 'No words selected'
+                    {{ loading ? 'Adding...'
+                        : words.some(word => word.ifLoad)
+                            ? (canAddToNotebook ? 'Add to notebook' : 'There are conflicts')
+                            : 'No words selected'
                     }}
                 </v-btn>
             </v-card-text>
@@ -201,26 +202,12 @@ const currentDuplicateWords = computed(() => {
 });
 
 const hasDuplicateWords = computed(() => {
-    return words.value.some(word => {
-        if (!word.ifLoad || !word.word || !word.type)
-            return false;
-
-        const normalizedWord = wordStore.normalizeInputText(word.word);
-
-        return wordStore.findWords(normalizedWord, word.type).length > 0;
-    });
+    return words.value.some(word => needsDuplicateConfirmation(word));
 });
 
 function skipAllDuplicateWords() {
     words.value.forEach(word => {
-        if (!word.ifLoad || !word.word || !word.type)
-            return;
-
-        const normalizedWord = wordStore.normalizeInputText(word.word);
-
-        const hasDuplicate = wordStore.findWords(normalizedWord, word.type ).length > 0;
-
-        if (hasDuplicate) {
+        if (needsDuplicateConfirmation(word)) {
             word.ifLoad = false;
             word.confirmedDuplicateKey = null;
         }
