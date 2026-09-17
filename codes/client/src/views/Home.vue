@@ -11,7 +11,34 @@
                     <div id="recto-verso">
                         <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title class="d-flex flex-column ga-1">
-                                <p class="overflow-hidden text-truncate">Current: {{ wordStore.currentNotebook?.name }}</p>
+                                
+                                <v-menu :disabled="currCard.length > 0 || alertStore.loading">
+                                    <template #activator="{ props }">
+                                        <v-chip
+                                            v-bind="props"
+                                            color="indigo-darken-1"
+                                            variant="tonal"
+                                            prepend-icon="mdi-notebook"
+                                            :disabled="currCard.length > 0 || alertStore.loading"
+                                            style="max-width: 100%;"
+                                        >
+                                            <span class="text-truncate d-inline-block" style="max-width: 220px;">{{ wordStore.currentNotebook?.name }}</span>
+                                        </v-chip>
+                                    </template>
+
+                                    <v-list density="compact">
+                                        <v-list-item v-for="notebook in wordStore.notebooks" :key="notebook.id" :active="notebook.id === wordStore.currentNotebook?.id" @click="quickSelectNotebook(notebook)">
+                                            <template #prepend>
+                                                <v-icon> {{ notebook.id === wordStore.currentNotebook?.id ? 'mdi-check' : 'mdi-notebook-outline' }} </v-icon>
+                                            </template>
+
+                                            <v-list-item-title class="text-truncate">
+                                                {{ notebook.name }}
+                                            </v-list-item-title>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+
                                 <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
                             </v-card-title>
                             <v-card-text>
@@ -79,7 +106,14 @@
                     <div id="main-region" class="overflow-y-scroll hide-scroll-bar">
                         <!-- 背单词界面 -->
                         <div v-if="currCard.length > 0">
-                            <v-btn prepend-icon="mdi-backspace-outline" variant="tonal" color="cyan-darken-4" block @click="BackToTab" :disabled="alertStore.loading">Back</v-btn>
+                            <div class="d-flex align-center mb-2">
+                                <v-btn width="33%" prepend-icon="mdi-backspace-outline" variant="tonal" color="cyan-darken-4" @click="BackToTab" :disabled="alertStore.loading">Back</v-btn>
+                                
+                                <div class="d-flex align-center ga-2 text-medium-emphasis flex-grow-1 justify-center">
+                                    <v-icon icon="mdi-timer-outline" />
+                                    <span class="font-weight-medium">{{ studyTimeText }}</span>
+                                </div>
+                            </div>
 
                             <wordCard 
                             :cardType="cardCurrType"
@@ -192,7 +226,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, nextTick } from 'vue';
+import { computed, onMounted, ref, nextTick, onBeforeUnmount } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useWordStore, useAlertStore, useAuthStore } from '@/stores';
 import { axiosWrapper } from '../utilities/axios-wrapper';
@@ -221,6 +255,7 @@ const showImportUI = ref(false);
 const importedWordPack = ref(null);
 const showChangeNotebookUI = ref(false);
 const notebookNumbers = ref({});
+const studySeconds = ref(0);
 
 const { mdAndUp: isDesktop } = useDisplay();
 
@@ -238,6 +273,35 @@ const exactDuplicateExists = computed(() =>
 );
 
 let reviewWordLength = 0;
+
+let studyTimer = null;
+
+const studyTimeText = computed(() => {
+    const hours = Math.floor(studySeconds.value / 3600);
+    const minutes = Math.floor((studySeconds.value % 3600) / 60);
+    const seconds = studySeconds.value % 60;
+
+    if (hours > 0)
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+});
+
+function startStudyTimer() {
+    studySeconds.value = 0;
+
+    clearInterval(studyTimer);
+
+    studyTimer = setInterval(() => {
+        studySeconds.value++;
+    }, 1000);
+}
+
+function stopStudyTimer() {
+    clearInterval(studyTimer);
+    studyTimer = null;
+    studySeconds.value = 0;
+}
 
 async function HandleAdd() {
     if (!normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value)
@@ -310,6 +374,8 @@ async function InitReviewQueue(type) {
             
             currCard.value = await ConbineShowWords(nextWord, wordStore.reviewQueue);
             wordStore.reviewWordCount = 0;
+
+            startStudyTimer();
         } finally {
             alertStore.setLoading(false);
         }
@@ -430,6 +496,8 @@ async function ConbineShowWords(motherWord, currentQueue){
 }
 
 async function BackToTab() {
+    stopStudyTimer();
+
     currCard.value = [];
     showNotebook.value = false;
     reviewWordLength = 0;
@@ -507,6 +575,25 @@ function HandleViewNoteBook() {
 
     showNotebook.value = true;
 }
+
+async function quickSelectNotebook(notebook) {
+    if (alertStore.loading || currCard.value.length > 0 || notebook.id === wordStore.currentNotebook?.id)
+        return;
+
+    alertStore.setLoading(true);
+
+    try {
+        wordStore.currentNotebook = notebook;
+        await wordStore.fetchNotebookAndWords();
+    }
+    finally {
+        alertStore.setLoading(false);
+    }
+}
+
+onBeforeUnmount(() => {
+    clearInterval(studyTimer);
+});
 </script>
 
 <style lang="less" scoped>
