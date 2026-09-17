@@ -413,7 +413,7 @@ async function BackToTab() {
     alertStore.setLoading(true);
     try {
         wordStore.resetQueue();
-        await wordStore.fetchWords();
+        await wordStore.fetchNotebookAndWords();
     } finally {
         alertStore.setLoading(false);
     }
@@ -440,7 +440,7 @@ onMounted(async () => {
 
     if (!user) return;
     
-    await wordStore.fetchWords();
+    await wordStore.fetchNotebookAndWords();
 })
 
 function HandleLogout() {

@@ -37,17 +37,35 @@
 
                 <v-card-text class="overflow-x-auto hide-scrollbar px-6 py-5" style="flex: 1 1 auto;">
                     <div class="d-flex flex-nowrap ga-4">
-                        <div class="d-flex flex-column" v-for="(notebook, index) in wordStore.notebooks" :key="notebook.id">
-                            <v-sheet width="250" min-width="250" height="210" rounded="xl" 
-                                class="notebook-sheet position-relative pa-5 d-flex flex-column flex-shrink-0"
+                        <div class="d-flex flex-column" v-for="notebook in sortedNotebooks" :key="notebook.id">
+                            <v-card width="250" min-width="250" height="210" rounded="xl" 
+                                class="notebook-sheet position-relative pa-5 d-flex flex-column flex-shrink-0 elevation-0"
                                 :class="{ 'current-notebook': notebook.id === wordStore.currentNotebook?.id }"
                                 @click="selectNotebook(notebook)"
                             >
-                                <v-icon icon="mdi-notebook" size="42" color="indigo-darken-1" class="mb-4"/>
+                                <v-card-title class="d-flex align-center pa-0">
+                                    <v-icon icon="mdi-notebook" size="35" color="indigo-darken-1" class="mb-4"/>
+
+                                    <v-spacer />
+                                    
+                                    <v-menu :model-value="openMenuId === notebook.id" @update:model-value="value => openMenuId = value ? notebook.id : null">
+                                        <template #activator="{ props: menuProps }">
+                                            <v-btn v-bind="menuProps" icon="mdi-dots-horizontal" variant="text" :disabled="loading" @click.stop/>
+                                        </template>
+
+                                        <v-list density="compact">
+                                            <v-list-item prepend-icon="mdi-pencil" title="Rename" @click.stop="openEdit(notebook)"/>
+
+                                            <v-list-item v-if="!notebook.is_default" prepend-icon="mdi-star-outline" title="Set as default" @click.stop="setDefaultNotebook(notebook)" />
+
+                                            <v-list-item v-if="!notebook.is_default" prepend-icon="mdi-delete-outline" title="Delete" base-color="error" @click.stop="openDelete(notebook)" />
+                                        </v-list>
+                                    </v-menu>
+                                </v-card-title>
     
                                 <v-text-field v-if="editingNotebookId === notebook.id" ref="editNameInput" v-model="editingNotebookName" variant="underlined" density="compact" hide-details maxlength="64" @click.stop @blur="saveNotebookName(notebook)" @keyup.enter="$event.target.blur()" @keyup.esc="cancelEdit"/>
-                                <p class="text-h6 font-weight-bold text-truncate" :class="(notebook.name !== 'Default Notebook') && index === 0 ? '' : 'mb-2'">{{ notebook.name }}</p>
-                                <p class="font-weight-bold text-truncate mb-2">{{ (notebook.name !== 'Default Notebook') && index === 0 ? '(default)' : '' }}</p>
+                                <p v-show="editingNotebookId !== notebook.id" class="text-h6 font-weight-bold text-truncate" :class="notebook.is_default ? '' : 'mb-2'">{{ notebook.name }}</p>
+                                <p v-if="notebook.is_default && notebook.name !== 'Default Notebook'" class="font-weight-bold text-truncate mb-2">(default)</p>
     
                                 <p class="text-body-2 text-medium-emphasis mb-0">{{ getWordCount(notebook.id) }} {{ getWordCount(notebook.id) === 1 ? 'word' : 'words' }}</p>
     
@@ -58,11 +76,7 @@
                                 </v-chip>
     
                                 <p v-else class="text-caption text-medium-emphasis mb-0">Click to switch</p>
-                            </v-sheet>
-                            <div class="d-flex justify-center align-center ga-3 mt-2">
-                                <v-btn icon="mdi-pencil" color="indigo-darken-1" variant="tonal" :disabled="loading" @click.stop="openEdit(notebook)"/>
-                                <v-btn v-if="notebook.name !== 'Default Notebook'" icon="mdi-delete-outline" color="error" variant="tonal" :disabled="loading || wordStore.notebooks.length <= 1" @click.stop="openDelete(notebook)"/>
-                            </div>
+                            </v-card>
                         </div>
                     </div>
                 </v-card-text>
@@ -161,12 +175,40 @@ const newNotebookName = ref('');
 const notebookToDelete = ref(null);
 const deleteConfirmation = ref('');
 
+const openMenuId = ref(null);
+
 const editingNotebookId = ref(null);
 const editingNotebookName = ref('');
 const editNameInput = ref(null);
 
 const canCreate = computed(() => newNotebookName.value.trim().length > 0 && !wordStore.notebooks.some(notebook => notebook.name === newNotebookName.value.trim()));
 const canDelete = computed(() => notebookToDelete.value && deleteConfirmation.value.trim() === notebookToDelete.value.name);
+
+const sortedNotebooks = computed(() =>
+    [...wordStore.notebooks].sort((a, b) => Number(b.is_default) - Number(a.is_default))
+);
+
+async function setDefaultNotebook(notebook) {
+    openMenuId.value = null;
+
+    if (loading.value || notebook.is_default)
+        return;
+
+    loading.value = true;
+
+    try {
+        await axiosWrapper.post('/notebook/setDefault', {
+            id: notebook.id
+        });
+
+        wordStore.notebooks.forEach(item => {
+            item.is_default = item.id === notebook.id ? 1 : 0;
+        });
+    }
+    finally {
+        loading.value = false;
+    }
+}
 
 function getWordCount(notebookId) {
     const numberList = Array.isArray(props.notebookNumbers) ? props.notebookNumbers : [];
@@ -189,7 +231,7 @@ async function selectNotebook(notebook) {
 
     try {
         wordStore.currentNotebook = notebook;
-        await wordStore.fetchWords();
+        await wordStore.fetchNotebookAndWords();
         emit('update:modelValue', false);
     }
     finally {
@@ -223,13 +265,18 @@ async function createNotebook() {
 }
 
 function openDelete(notebook) {
+    openMenuId.value = null;
+    
+    if (notebook.is_default)
+        return;
+
     notebookToDelete.value = notebook;
     deleteConfirmation.value = '';
     mode.value = 'delete';
 }
 
 async function deleteNotebook() {
-    if (!canDelete.value || loading.value)
+    if (!canDelete.value || loading.value || notebookToDelete.value?.is_default)
         return;
 
     loading.value = true;
@@ -244,8 +291,8 @@ async function deleteNotebook() {
         );
 
         if (wordStore.currentNotebook?.id === deletedId) {
-            wordStore.currentNotebook = wordStore.notebooks[0];
-            await wordStore.fetchWords();
+            wordStore.currentNotebook = wordStore.notebooks.find(notebook => notebook.is_default) ?? wordStore.notebooks[0];
+            await wordStore.fetchNotebookAndWords();
         }
 
         backToList();
@@ -263,6 +310,8 @@ function backToList() {
 }
 
 async function openEdit(notebook) {
+    openMenuId.value = null;
+
     editingNotebookId.value = notebook.id;
     editingNotebookName.value = notebook.name;
 

@@ -148,7 +148,7 @@ router.get('/me', authMiddleware, (req, res) => {
 
 router.get('/notebooks', authMiddleware, async (req, res) => {
     const userId = req.user.id;
-    const sql = 'SELECT id, name FROM notebooks WHERE user_id = ?';
+    const sql = 'SELECT id, name, is_default FROM notebooks WHERE user_id = ?';
 
     try {
         const notebooks = await connection.execute('vocab_profiler_db', sql, [userId]);

@@ -7,8 +7,8 @@ import { useAuthStore } from './authStore';
 
 export const useWordStore = defineStore('word', {
     state: () => ({
-        currentNotebook: null as { id: number; name: string } | null,
-        notebooks: [] as Array<{ id: number; name: string }>,
+        currentNotebook: null as { id: number; name: string, is_default: number } | null,
+        notebooks: [] as Array<{ id: number; name: string, is_default: number }>,
         words: [] as WordList,
         activeWordsStruct: {},
         passiveWordsStruct: {},
@@ -29,7 +29,7 @@ export const useWordStore = defineStore('word', {
         normalizeInputText(value: string) {
             return (value ?? '').replace(/\r\n/g, '\n').trim();
         },
-        async fetchWords() {
+        async fetchNotebookAndWords() {
             const authStore = useAuthStore();
             if (!authStore.user?.id) {
                 console.error('User ID is required to fetch words');
@@ -38,8 +38,9 @@ export const useWordStore = defineStore('word', {
 
             if (this.currentNotebook === null) {
                 // 查询用户的默认笔记本
-                const notebooks = await axiosWrapper.get<{ id: number; name: string }[]>(`/user/notebooks`);
-                this.currentNotebook = notebooks[0];
+                const notebooks = await axiosWrapper.get<{ id: number; name: string, is_default: number }[]>(`/user/notebooks`);
+                const defaultNotebook = notebooks.find(notebook => notebook.is_default === 1);
+                this.currentNotebook = defaultNotebook || notebooks[0] || null;
                 this.notebooks = notebooks;
             }
 

@@ -94,4 +94,27 @@ router.patch('/changeName', authMiddleware, async (req, res) => {
     res.json({ message: 'Notebook name changed successfully' });
 });
 
+router.post('/setDefault', authMiddleware, async (req, res) => {
+    const { id: notebookId } = req.body;
+    const userId = req.user.id;
+
+    const sqlResetDefault = "UPDATE notebooks SET is_default = 0 WHERE user_id = ?";
+    const sqlSetDefault = "UPDATE notebooks SET is_default = 1 WHERE id = ? AND user_id = ?";
+
+    try {
+        await connection.execute('vocab_profiler_db', sqlResetDefault, [userId]);
+        
+        const result = await connection.execute('vocab_profiler_db', sqlSetDefault, [notebookId, userId]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(400).json({error: 'Notebook not found or does not belong to the user'});
+        }
+
+        res.json({ message: 'Default notebook set successfully' });
+    } catch (error) {
+        console.error('Failed to set default notebook:', error);
+        return res.status(500).json({error: 'Failed to set default notebook'});
+    }
+});
+
 module.exports = router;

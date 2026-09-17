@@ -331,7 +331,7 @@ async function addToNotebook() {
             "notebook_id": wordStore.currentNotebook.id
         });
 
-        await wordStore.fetchWords();
+        await wordStore.fetchNotebookAndWords();
         emit('update:modelValue', false);
     }
     finally {

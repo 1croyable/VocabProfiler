@@ -41,6 +41,7 @@ CREATE TABLE `notebooks` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int unsigned NOT NULL,
   `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0;
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
