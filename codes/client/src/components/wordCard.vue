@@ -38,7 +38,7 @@
                             <v-divider class="border-opacity-100" color="#DEDEDE" :thickness="0.5" length="100%"></v-divider>
                         </div>
 
-                        <div v-if="!props.reversedWord" ref="versoScroller" @scroll="handleVersoScroll" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="flex: 1 1 auto; min-height: 0; width: 100%;">
+                        <div v-if="!props.reversedWord" ref="versoScroller" @scroll="handleVersoScroll" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap verso-scroller" style="flex: 1 1 auto; min-height: 0; width: 100%;">
                             <div v-for="(item, index) in versos" :key="`${item.id}-${item.__isReversed__ ? 'reverse' : 'forward'}`" class="verso-item flex-shrink-0 position-relative" :style="{ width: versos.length === 1 ? '100%' : '95%', height: '100%' }">
                                 <v-chip v-if="versos.length > 1 && item.__needBtn__" size="small" color="orange-darken-2" variant="tonal" class="position-absolute" style="top: 8px; left: 8px; z-index: 1;">
                                     {{ props.cardType === 'learn' ? 'To learn' : 'To review' }}
@@ -164,8 +164,6 @@ const versoScroller = ref(null);
 const rememberTrack = ref(null);
 const rememberProgress = ref(0);
 const rememberDragging = ref(false);
-
-let versoScrollTimer = null;
 
 // 声明向父组件发出的事件
 const emit = defineEmits(['nextCard']);
@@ -315,40 +313,39 @@ const rememberHandleStyle = computed(() => {
     };
 });
 
-function handleVersoScroll(event) {
-    const container = event.currentTarget;
+let versoScrollFrame = null;
 
-    clearTimeout(versoScrollTimer);
+const handleVersoScroll = () => {
+    if (versoScrollFrame) return;
 
-    versoScrollTimer = setTimeout(() => {
-        const items = [...container.querySelectorAll('.verso-item')];
+    versoScrollFrame = requestAnimationFrame(() => {
+        versoScrollFrame = null;
 
-        if (items.length === 0)
-            return;
+        const container = versoScroller.value;
+        if (!container) return;
 
         const containerRect = container.getBoundingClientRect();
         const center = containerRect.left + containerRect.width / 2;
 
-        let bestIndex = 0;
-        let bestDistance = Infinity;
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
+
+        const items = container.querySelectorAll('.verso-item');
 
         items.forEach((item, index) => {
-            const itemRect = item.getBoundingClientRect();
-            const itemCenter = itemRect.left + itemRect.width / 2;
+            const rect = item.getBoundingClientRect();
+            const itemCenter = rect.left + rect.width / 2;
             const distance = Math.abs(itemCenter - center);
 
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestIndex = index;
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestIndex = index;
             }
         });
 
-        currentVersoIndex.value = bestIndex;
-        rememberProgress.value = 0;
-        rememberDragging.value = false;
-    }, 80);
-}
-
+        currentVersoIndex.value = nearestIndex;
+    });
+};
 function updateRememberProgress(event) {
     const rect = rememberTrack.value?.getBoundingClientRect();
 
@@ -799,6 +796,17 @@ async function reviewOublie(item) {
 @media (max-width: 960px) {
     .flip-container {
         margin-top: 5vh;
+    }
+
+    .verso-scroller {
+        touch-action: pan-x;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+    }
+
+    .verso-item {
+        scroll-snap-align: center;
+        scroll-snap-stop: always;
     }
 }
 </style>
