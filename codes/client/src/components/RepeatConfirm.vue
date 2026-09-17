@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
 	modelValue: {
@@ -46,6 +46,29 @@ const emit = defineEmits(['update:modelValue', 'add', 'cancel']);
 const repeatConfirmDialog = computed({
 	get: () => props.modelValue,
 	set: (value) => emit('update:modelValue', value),
+});
+
+function handleKeydown(event) {
+    if (!props.modelValue || props.loading)
+        return;
+
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        emit('add');
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Backspace') {
+        event.preventDefault();
+        emit('cancel');
+    }
+}
+
+onMounted(() => {
+    window.addEventListener('keydown', handleKeydown);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('keydown', handleKeydown);
 });
 </script>
 

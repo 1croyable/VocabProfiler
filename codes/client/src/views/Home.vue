@@ -1,5 +1,10 @@
 <template>
-    <v-container fluid class="pa-0" id="container">
+    <v-container fluid class="pa-0" id="container"
+        @keydown.ctrl.enter.stop.prevent="HandleAdd"
+        @keydown.meta.enter.stop.prevent="HandleAdd"
+        @keydown.alt.1.prevent="type = 'active'"
+        @keydown.alt.2.prevent="type = 'passive'"
+    >
         <v-row no-gutters>
             <v-col cols="12" md="8" class="pa-0">
                 <div id="left-bg" class="position-relative display-flex align-center justify-center flex-wrap">
@@ -11,6 +16,7 @@
                             </v-card-title>
                             <v-card-text>
                                 <v-textarea
+                                    ref="rectoInput"
                                     density="compact"
                                     label="Enter the word on the recto"
                                     variant="underlined"
@@ -22,6 +28,7 @@
                                     color="cyan-darken-4"
                                     clearable
                                     v-model="rectoText"
+                                    @keydown.alt.enter.prevent="focusVerso"
                                 ></v-textarea>
                             </v-card-text>
                         </v-card>
@@ -47,6 +54,7 @@
                             </v-card-title>
                             <v-card-text>
                                 <v-textarea
+                                    ref="versoInput"
                                     density="compact"
                                     label="enter the explanation on the verso"
                                     variant="underlined"
@@ -58,8 +66,9 @@
                                     color="cyan-darken-4"
                                     clearable
                                     v-model="versoText"
+                                    @keydown.alt.enter.prevent="focusRecto"
                                 ></v-textarea>
-                                <v-btn :disabled="alertStore.loading" class="mt-2" color="black" v-show="rectoText && versoText" @click="Swap" block>Swap the front and back</v-btn>
+                                <v-btn :disabled="alertStore.loading" class="mt-2" color="black" v-show="rectoText.trim() && versoText.trim()" @click="Swap" block>Swap the front and back</v-btn>
                             </v-card-text>
                         </v-card>
                     </div>
@@ -183,7 +192,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, nextTick } from 'vue';
 import { useDisplay } from 'vuetify';
 import { useWordStore, useAlertStore, useAuthStore } from '@/stores';
 import { axiosWrapper } from '../utilities/axios-wrapper';
@@ -198,6 +207,8 @@ import RepeatConfirm from '@/components/RepeatConfirm.vue';
 const type = ref("active");
 const rectoText = ref("");
 const versoText = ref("");
+const rectoInput = ref(null);
+const versoInput = ref(null);
 const tab = ref("a");
 const currCard = ref([]);
 const cardCurrType = ref("");
@@ -229,7 +240,12 @@ const exactDuplicateExists = computed(() =>
 let reviewWordLength = 0;
 
 async function HandleAdd() {
-    if (!normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value) return;
+    if (!normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value)
+        return;
+
+    if (!normalizedRectoText.value.trim() || !normalizedVersoText.value.trim())
+        return;
+
     // 确认词汇存在与否，如果已存在，就询问是否重复添加
     const existingWord = wordStore.findWord(normalizedRectoText.value, type.value);
     if (existingWord) {
@@ -254,6 +270,9 @@ async function Add(){
         alertStore.setLoading(false);
         
         Close();
+
+        await nextTick();
+        focusRecto();
     }
 }
 
@@ -268,6 +287,14 @@ function Swap(){
     const temp = rectoText.value;
     rectoText.value = versoText.value;
     versoText.value = temp;
+}
+
+function focusRecto() {
+    rectoInput.value?.focus();
+}
+
+function focusVerso() {
+    versoInput.value?.focus();
 }
 
 async function InitReviewQueue(type) {
@@ -441,6 +468,9 @@ onMounted(async () => {
     if (!user) return;
     
     await wordStore.fetchNotebookAndWords();
+
+    await nextTick();
+    focusRecto();
 })
 
 function HandleLogout() {
