@@ -290,10 +290,38 @@ watch(
 );
 
 async function addToNotebook() {
-    const wordsToAdd = words.value.filter(word => word.ifLoad);
+    const seen = new Set();
+
+    const wordsToAdd = words.value.filter(word => word.ifLoad)
+        .map(word => ({
+            word: word.word.trim(),
+            explanation: word.explanation.trim(),
+            type: word.type,
+        }))
+        .filter(word => {
+            const normalizedWord = wordStore.normalizeInputText(word.word).toLocaleLowerCase();
+
+            const normalizedExplanation = wordStore.normalizeInputText(word.explanation).toLocaleLowerCase();
+
+            const key = `${word.type}::${normalizedWord}::${normalizedExplanation}`;
+
+            // compare with the existing words in the notebook and the words that have already been added in this batch
+            const exactDuplicate = wordStore
+                .findWords(normalizedWord, word.type)
+                .some(existingWord => wordStore.normalizeInputText(existingWord.explanation).toLocaleLowerCase() === normalizedExplanation);
+
+            if (exactDuplicate || seen.has(key))
+                return false;
+
+            seen.add(key);
+            return true;
+        });
 
     if (wordsToAdd.length === 0)
+    {
+        emit('update:modelValue', false);
         return;
+    }
 
     loading.value = true;
 

@@ -120,7 +120,10 @@
 
 			<v-card-actions>
 				<v-spacer />
-				<v-btn :disabled="loading" v-show="showSaveButton" variant="text" @click="saveEdit">Save</v-btn>
+				<v-btn :disabled="loading || saveButtonStatus !== 2" v-show="saveButtonStatus !== 0" variant="text" @click="saveEdit">
+					<span v-if="saveButtonStatus === 1" style="color: red;">Duplicate</span>
+					<span v-else-if="saveButtonStatus === 2">Save</span>
+				</v-btn>
 				<v-btn variant="text" :disabled="loading" @click="removeWord">Remove</v-btn>
 			</v-card-actions>
 		</v-card>
@@ -170,11 +173,27 @@ const tableItems = computed(() => {
 	}));
 });
 
-const showSaveButton = computed(() => {
-    return selectedItem.value != null && !!editForm.value.word && !!editForm.value.explanation &&
-		(editForm.value.word !== selectedItem.value?.word ||
-        editForm.value.explanation !== selectedItem.value?.explanation ||
-        editForm.value.type !== selectedItem.value?.type);
+const saveButtonStatus = computed(() => {
+	const hasChange = selectedItem.value != null && !!editForm.value.word && !!editForm.value.explanation && // exists
+		(editForm.value.word.trim() !== selectedItem.value?.word.trim() ||
+        editForm.value.explanation.trim() !== selectedItem.value?.explanation.trim() ||
+        editForm.value.type !== selectedItem.value?.type); // has change
+
+	const isWordDuplicate = wordStore.words.some(word => word.word.trim() === editForm.value.word.trim() &&
+		word.explanation.trim() === editForm.value.explanation.trim() &&
+		word.type === editForm.value.type &&
+		word.id !== selectedItem.value?.id
+	)
+
+	if (isWordDuplicate) {
+		return 1; // duplicate
+	}
+
+    if (hasChange) {
+		return 2; // no duplicate and has change
+	}
+
+	return 0; // no change
 });
 
 function wordFilter(value, query) {
@@ -230,8 +249,8 @@ async function saveEdit(){
 
 		const payload = {
 			id: selectedItem.value.id,
-			word: editForm.value.word,
-			explanation: editForm.value.explanation,
+			word: editForm.value.word.trim(),
+			explanation: editForm.value.explanation.trim(),
 			type: editForm.value.type,
 		};
 
