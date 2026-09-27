@@ -30,8 +30,6 @@ class MysqlConnection {
             queueLimit: getConfig('db.queueLimit')
         };
 
-        console.log(JSON.stringify(params));
-
         const pool = mysql.createPool(params);
 
         pool.getConnection((err, connection) => {

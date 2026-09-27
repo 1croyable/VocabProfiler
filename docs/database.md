@@ -19,6 +19,21 @@ CREATE TABLE `users` (
 ## 单词管理
 
 ```sql
+CREATE TABLE `notebooks` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_notebooks_user_name` (`user_id`,`name`),
+  KEY `idx_notebooks_user_id` (`user_id`),
+  CONSTRAINT `fk_notebooks_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+```
+
+```sql
 CREATE TABLE `words` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int unsigned DEFAULT NULL,
@@ -36,21 +51,6 @@ CREATE TABLE `words` (
   CONSTRAINT `fk_words_notebook` FOREIGN KEY (`notebook_id`) REFERENCES `notebooks` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_words_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=56 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-```
-
-```sql
-CREATE TABLE `notebooks` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` int unsigned NOT NULL,
-  `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_default` TINYINT(1) NOT NULL DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_notebooks_user_name` (`user_id`,`name`),
-  KEY `idx_notebooks_user_id` (`user_id`),
-  CONSTRAINT `fk_notebooks_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ```
 
 ## 便签暂存区（需由数据库管理员创建）

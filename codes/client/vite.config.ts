@@ -11,21 +11,14 @@ export default defineConfig({
     port: 8443,
     strictPort: false, // 若8443端口被占用,是否直接结束项目
     https: false, // 是否开启 https
-    open: '/dev', // 是否自动在浏览器打开
+    open: '/', // 打开应用首页
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "http://127.0.0.1:3000",
         changeOrigin: true,
         // secure: false, // 如果是https接口，需要配置这个参数
         // ws: true, // websocket是否支持
         rewrite: (path) => path.replace(/^\/api/, ""),
-      },
-      "/user": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-        // secure: false, // 如果是https接口，需要配置这个参数
-        // ws: true, // websocket是否支持
-        rewrite: (path) => path.replace(/^\/user/, ""),
       },
     }
   },

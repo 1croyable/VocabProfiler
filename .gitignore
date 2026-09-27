@@ -1,5 +1,6 @@
 # Logs
-**/logs
+**/logs/*
+!codes/server/logs/Winston.js
 **/*.log
 **/npm-debug.log*
 **/yarn-debug.log*
@@ -9,6 +10,7 @@
 
 # Node modules (monorepo)
 **/node_modules/
+**/.vite/
 
 # Build outputs (client/server)
 **/dist/
