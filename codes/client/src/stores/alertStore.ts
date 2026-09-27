@@ -8,12 +8,14 @@ interface Alert {
 interface AlertState {
     alert: Alert | null;
     loading: boolean;
+    loadingCount: number;
 }
 
 export const useAlertStore = defineStore('alert',{
     state: (): AlertState => ({
         alert: null,
-        loading: false
+        loading: false,
+        loadingCount: 0
     }),
     actions: {
         success(message: string) {
@@ -26,7 +28,8 @@ export const useAlertStore = defineStore('alert',{
             this.alert = null;
         },
         setLoading(isLoading: boolean) {
-            this.loading = isLoading;
+            this.loadingCount = Math.max(0, this.loadingCount + (isLoading ? 1 : -1));
+            this.loading = this.loadingCount > 0;
         }
     }
 });

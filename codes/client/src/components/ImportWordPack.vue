@@ -170,9 +170,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
-import { useWordStore } from '@/stores';
+import { useAlertStore, useWordStore } from '@/stores';
 
 const wordStore = useWordStore();
+const alertStore = useAlertStore();
 
 const props = defineProps({
     modelValue: {
@@ -187,7 +188,7 @@ const wordPackId = ref('');
 const wordPack = ref(null);
 const words = ref([]);
 const errorMessage = ref('');
-const loading = ref(false);
+const loading = computed(() => alertStore.loading);
 const duplicateConfirmOverlay = ref(false);
 const duplicateConfirmWord = ref(null);
 
@@ -235,7 +236,7 @@ async function loadWordPack() {
         return;
     }
 
-    loading.value = true;
+    alertStore.setLoading(true);
     errorMessage.value = '';
     wordPack.value = null;
 
@@ -251,7 +252,7 @@ async function loadWordPack() {
         errorMessage.value = error?.response?.data?.error || error?.message || 'Failed to load the word pack.';
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 
@@ -310,7 +311,7 @@ async function addToNotebook() {
         return;
     }
 
-    loading.value = true;
+    alertStore.setLoading(true);
 
     try {
         await axiosWrapper.post('/word/add-batch', {
@@ -322,7 +323,7 @@ async function addToNotebook() {
         emit('update:modelValue', false);
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 

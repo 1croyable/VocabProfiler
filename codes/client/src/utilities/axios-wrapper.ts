@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios';
-import { useAuthStore } from '../stores';
+import { useAlertStore } from '../stores/alertStore';
+import { useAuthStore } from '../stores/authStore';
 
 const axiosInstance = axios.create({
     baseURL: `/api`,
@@ -8,12 +9,23 @@ const axiosInstance = axios.create({
     }
 });
 
+axiosInstance.interceptors.request.use((config) => {
+    useAlertStore().setLoading(true);
+    return config;
+}, (error) => {
+    useAlertStore().setLoading(false);
+    return Promise.reject(error);
+});
+
 axiosInstance.interceptors.response.use((response: AxiosResponse) => {
+    useAlertStore().setLoading(false);
     return response.data;
 }, (error) => {
+    useAlertStore().setLoading(false);
+
     const authStore = useAuthStore();
 
-    if([401, 403].includes(error.response.status))  {
+    if ([401, 403].includes(error.response?.status))  {
         if(authStore.user) {
             authStore.logout(); // 如果用户已经登录，说明token过期，需要重新登录
         }

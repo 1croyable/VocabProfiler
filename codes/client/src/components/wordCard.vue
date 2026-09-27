@@ -65,7 +65,7 @@
                                             <v-card-actions v-else-if="props.cardType === 'review'" class="desktop-score-actions d-flex justify-center px-0">
                                                 <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewMatriser(item)" color="blue accent-4" variant="text">Mastered</v-btn>
                                                 <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @click="reviewFlou(item)" color="#BEC832" variant="text">Unclear</v-btn>
-                                                <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @pointerdown="startForgottenPress($event, item)" @pointerup="finishForgottenPress($event, item)" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, item)" color="red accent-4" variant="text">Forgotten</v-btn>
+                                                <v-btn :disabled="!item.__needBtn__ || alertStore.loading" @pointerdown="startForgottenPress($event, item)" @pointerup="finishForgottenPress($event, item)" @pointerleave="cancelForgottenPress" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, item)" color="red accent-4" variant="text">Forgotten</v-btn>
                                             </v-card-actions>
                                         </div>
                                     </div>
@@ -96,7 +96,7 @@
                                         <v-card-actions v-else-if="props.cardType === 'review'" class="desktop-score-actions d-flex justify-center px-0">
                                             <v-btn :disabled="alertStore.loading" @click="reviewMatriser(props.word[0])" color="blue accent-4" variant="text">Mastered</v-btn>
                                             <v-btn :disabled="alertStore.loading" @click="reviewFlou(props.word[0])" color="#BEC832" variant="text">Unclear</v-btn>
-                                            <v-btn :disabled="alertStore.loading" @pointerdown="startForgottenPress($event, props.word[0])" @pointerup="finishForgottenPress($event, props.word[0])" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, props.word[0])" color="red accent-4" variant="text">Forgotten</v-btn>
+                                            <v-btn :disabled="alertStore.loading" @pointerdown="startForgottenPress($event, props.word[0])" @pointerup="finishForgottenPress($event, props.word[0])" @pointerleave="cancelForgottenPress" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, props.word[0])" color="red accent-4" variant="text">Forgotten</v-btn>
                                         </v-card-actions>
                                     </div>
                                 </div>
@@ -128,7 +128,7 @@
                         Unclear
                     </v-btn>
 
-                    <v-btn width="130px" height="35px" class="rounded-xl" color="red" variant="outlined" :disabled="!canRememberCurrent" @pointerdown="startForgottenPress($event, currentVerso)" @pointerup="finishForgottenPress($event, currentVerso)" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, currentVerso)">
+                    <v-btn width="130px" height="35px" class="rounded-xl" color="red" variant="outlined" :disabled="!canRememberCurrent" @pointerdown="startForgottenPress($event, currentVerso)" @pointerup="finishForgottenPress($event, currentVerso)" @pointerleave="cancelForgottenPress" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, currentVerso)">
                         Forgotten
                     </v-btn>
                 </template>
@@ -143,7 +143,7 @@
                 <template v-else-if="props.cardType === 'review'">
                     <v-btn color="blue accent-4" variant="text" :disabled="!canRememberCurrent" @click="reviewMatriser(currentVerso)">Mastered</v-btn>
                     <v-btn color="#BEC832" variant="text" :disabled="!canRememberCurrent" @click="reviewFlou(currentVerso)">Unclear</v-btn>
-                    <v-btn color="red accent-4" variant="text" :disabled="!canRememberCurrent" @pointerdown="startForgottenPress($event, currentVerso)" @pointerup="finishForgottenPress($event, currentVerso)" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, currentVerso)">Forgotten</v-btn>
+                    <v-btn color="red accent-4" variant="text" :disabled="!canRememberCurrent" @pointerdown="startForgottenPress($event, currentVerso)" @pointerup="finishForgottenPress($event, currentVerso)" @pointerleave="cancelForgottenPress" @pointercancel="cancelForgottenPress" @click="handleForgottenClick($event, currentVerso)">Forgotten</v-btn>
                 </template>
             </div>
 
@@ -632,14 +632,6 @@ async function reviewFlou(item) {
 let forgottenPress = null;
 
 function cancelForgottenPress() {
-    if (!forgottenPress)
-        return;
-
-    const { target, pointerId } = forgottenPress;
-
-    if (target.hasPointerCapture?.(pointerId))
-        target.releasePointerCapture(pointerId);
-
     forgottenPress = null;
 }
 
@@ -653,7 +645,6 @@ function startForgottenPress(event, item) {
         item,
     };
 
-    event.currentTarget.setPointerCapture?.(event.pointerId);
 }
 
 async function finishForgottenPress(event, item) {

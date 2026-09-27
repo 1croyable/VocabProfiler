@@ -152,7 +152,7 @@
 <script setup>
 import { computed, ref, watch, nextTick } from 'vue';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
-import { useWordStore } from '@/stores';
+import { useAlertStore, useWordStore } from '@/stores';
 
 const props = defineProps({
     modelValue: {
@@ -168,8 +168,9 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const wordStore = useWordStore();
+const alertStore = useAlertStore();
 
-const loading = ref(false);
+const loading = computed(() => alertStore.loading);
 const mode = ref('list');
 const newNotebookName = ref('');
 const notebookToDelete = ref(null);
@@ -194,7 +195,7 @@ async function setDefaultNotebook(notebook) {
     if (loading.value || notebook.is_default)
         return;
 
-    loading.value = true;
+    alertStore.setLoading(true);
 
     try {
         await axiosWrapper.post('/notebook/setDefault', {
@@ -206,7 +207,7 @@ async function setDefaultNotebook(notebook) {
         });
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 
@@ -227,7 +228,7 @@ async function selectNotebook(notebook) {
         return;
     }
 
-    loading.value = true;
+    alertStore.setLoading(true);
 
     try {
         wordStore.currentNotebook = notebook;
@@ -235,7 +236,7 @@ async function selectNotebook(notebook) {
         emit('update:modelValue', false);
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 
@@ -250,7 +251,7 @@ async function createNotebook() {
     if (!name || loading.value)
         return;
 
-    loading.value = true;
+    alertStore.setLoading(true);
 
     try {
         const newNotebook = await axiosWrapper.post('/notebook/create', { name });
@@ -260,7 +261,7 @@ async function createNotebook() {
         newNotebookName.value = '';
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 
@@ -279,7 +280,7 @@ async function deleteNotebook() {
     if (!canDelete.value || loading.value || notebookToDelete.value?.is_default)
         return;
 
-    loading.value = true;
+    alertStore.setLoading(true);
 
     try {
         const deletedId = notebookToDelete.value.id;
@@ -298,7 +299,7 @@ async function deleteNotebook() {
         backToList();
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 
@@ -333,7 +334,7 @@ async function saveNotebookName(notebook) {
         return;
     }
 
-    loading.value = true;
+    alertStore.setLoading(true);
 
     try {
         await axiosWrapper.patch('/notebook/changeName', {
@@ -344,7 +345,7 @@ async function saveNotebookName(notebook) {
         notebook.name = name;
     }
     finally {
-        loading.value = false;
+        alertStore.setLoading(false);
         cancelEdit();
     }
 }

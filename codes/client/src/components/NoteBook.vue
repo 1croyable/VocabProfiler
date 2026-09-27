@@ -134,13 +134,14 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { useWordStore } from '@/stores';
+import { useAlertStore, useWordStore } from '@/stores';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
 import Confirm from '@/components/Confirm.vue';
 
 const emit = defineEmits(['backToTab']);
 
 const wordStore = useWordStore();
+const alertStore = useAlertStore();
 const search = ref('');
 const showEditDialog = ref(false);
 const selectedItem = ref(null);
@@ -149,7 +150,7 @@ const editForm = ref({
 	explanation: '',
 	type: 'active',
 });
-const loading = ref(false);
+const loading = computed(() => alertStore.loading);
 const ifPairAll = ref(false);
 const showRemoveConfirm = ref(false);
 
@@ -244,7 +245,7 @@ function closeEditDialog() {
 
 async function saveEdit(){
     try {
-		loading.value = true;
+		alertStore.setLoading(true);
 		if (!selectedItem.value) return;
 
 		const payload = {
@@ -271,7 +272,7 @@ async function saveEdit(){
     } catch (error) {
         console.error('Failed to update word:', error);
     } finally {
-        loading.value = false;
+        alertStore.setLoading(false);
     }
 }
 
@@ -287,7 +288,7 @@ async function confirmRemoveWord() {
 		return;
 
 	try {
-		loading.value = true;
+		alertStore.setLoading(true);
 
 		const wordId = selectedItem.value.id;
 
@@ -304,7 +305,7 @@ async function confirmRemoveWord() {
 	} catch (error) {
 		console.error('Failed to remove word:', error);
 	} finally {
-		loading.value = false;
+		alertStore.setLoading(false);
 	}
 }
 
