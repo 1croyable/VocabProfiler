@@ -11,8 +11,8 @@
                     <div id="recto-verso">
                         <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title class="d-flex flex-column ga-1">
-                                
-                                <v-menu v-if="workspaceMode === 'notebook'" :disabled="currCard.length > 0 || alertStore.loading">
+                                <div class="d-flex align-center justify-space-between ga-2" style="width: 100%; min-width: 0;">
+                                    <v-menu v-if="workspaceMode === 'notebook'" :disabled="currCard.length > 0 || alertStore.loading">
                                     <template #activator="{ props }">
                                         <v-chip
                                             v-bind="props"
@@ -20,9 +20,9 @@
                                             variant="tonal"
                                             prepend-icon="mdi-notebook"
                                             :disabled="currCard.length > 0 || alertStore.loading"
-                                            style="max-width: 100%;"
+                                            :style="{ width: isDesktop ? '77%' : '100%', minWidth: '0' }"
                                         >
-                                            <span class="text-truncate d-inline-block" style="max-width: 220px;">{{ wordStore.currentNotebook?.name }}</span>
+                                            <span class="text-truncate d-inline-block" style="max-width: 100%;">{{ wordStore.currentNotebook?.name }}</span>
                                         </v-chip>
                                     </template>
 
@@ -37,12 +37,12 @@
                                             </v-list-item-title>
                                         </v-list-item>
                                     </v-list>
-                                </v-menu>
+                                    </v-menu>
 
-                                <v-menu v-else :disabled="alertStore.loading">
+                                    <v-menu v-else :disabled="alertStore.loading">
                                     <template #activator="{ props }">
-                                        <v-chip v-bind="props" color="amber-darken-3" variant="tonal" prepend-icon="mdi-note-text-outline" style="max-width: 100%;">
-                                            <span class="text-truncate d-inline-block" style="max-width: 220px;">{{ noteStore.currentNote?.name }}</span>
+                                        <v-chip v-bind="props" color="amber-darken-3" variant="tonal" prepend-icon="mdi-note-text-outline" :style="{ width: isDesktop ? '77%' : '100%', minWidth: '0' }">
+                                            <span class="text-truncate d-inline-block" style="max-width: 100%;">{{ noteStore.currentNote?.name }}</span>
                                         </v-chip>
                                     </template>
                                     <v-list density="compact">
@@ -51,7 +51,23 @@
                                             <v-list-item-title>{{ note.name }}</v-list-item-title>
                                         </v-list-item>
                                     </v-list>
-                                </v-menu>
+                                    </v-menu>
+
+                                    <v-tooltip v-if="isDesktop" location="end" :open-on-hover="true" :open-on-focus="true" max-width="340">
+                                    <template #activator="{ props }">
+                                        <v-btn v-bind="props" icon="mdi-information-outline" variant="text" density="comfortable" color="cyan-darken-4" aria-label="Keyboard shortcuts" />
+                                    </template>
+                                    <div class="shortcut-tooltip">
+                                        <div class="font-weight-bold mb-2">Keyboard shortcuts</div>
+                                        <div><span>Add word</span><strong>{{ primaryShortcut }} + {{ enterKey }}</strong></div>
+                                        <div><span>Switch input field</span><strong>{{ optionShortcut }} + {{ enterKey }}</strong></div>
+                                        <div><span>Active / Passive</span><strong>{{ optionShortcut }} + 1 / 2</strong></div>
+                                        <v-divider class="my-2" />
+                                        <div><span>Confirm duplicate</span><strong>{{ primaryShortcut }} + {{ enterKey }}</strong></div>
+                                        <div><span>Cancel duplicate</span><strong>{{ primaryShortcut }} + {{ backspaceKey }}</strong></div>
+                                    </div>
+                                    </v-tooltip>
+                                </div>
 
                                 <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
                             </v-card-title>
@@ -311,6 +327,13 @@ const notebookNumbers = ref({});
 const studySeconds = ref(0);
 
 const { mdAndUp: isDesktop } = useDisplay();
+const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent || '';
+const isMac = /mac|iphone|ipad/i.test(platform);
+const isWindows = /win/i.test(platform);
+const primaryShortcut = isMac ? '⌘' : isWindows ? 'Ctrl' : 'Ctrl / ⌘';
+const optionShortcut = isMac ? '⌥' : isWindows ? 'Alt' : 'Alt / ⌥';
+const enterKey = isMac ? 'Return' : 'Enter';
+const backspaceKey = isMac ? '⌫' : 'Backspace';
 
 const wordStore = useWordStore();
 const noteStore = useNoteStore();
@@ -800,6 +823,22 @@ onBeforeUnmount(() => {
     object-fit: contain;
     display: block;
     transform: translateX(10%);
+}
+
+.shortcut-tooltip {
+    min-width: 250px;
+    padding: 4px 2px;
+
+    > div:not(:first-child):not(.v-divider) {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 5px;
+    }
+
+    strong {
+        white-space: nowrap;
+    }
 }
 
 </style>
