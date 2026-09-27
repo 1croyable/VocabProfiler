@@ -46,10 +46,6 @@
 
                         <div v-if="!props.reversedWord" ref="versoScroller" @scroll="handleVersoScroll" class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap verso-scroller" style="flex: 1 1 auto; min-height: 0; width: 100%;">
                             <div v-for="(item, index) in versos" :key="`${item.id}-${item.__isReversed__ ? 'reverse' : 'forward'}`" class="verso-item flex-shrink-0 position-relative" :style="{ width: versos.length === 1 ? '100%' : '95%', height: '100%' }">
-                                <v-chip v-if="item.__needBtn__" size="small" color="orange-darken-2" variant="tonal" class="position-absolute" style="top: 8px; left: 8px; z-index: 1;">
-                                    {{ getQueueLabel(item) }}
-                                </v-chip>
-
                                 <div class="d-flex" style="width: 100%; height: 100%;">
                                     <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
                                         <div class="d-flex align-center justify-center verso-explanation" style="width: 100%; flex: 1 1 auto;">
@@ -82,10 +78,6 @@
                         <div v-else class="overflow-x-auto hide-scroll-bar align-self-start d-flex flex-nowrap" style="flex: 1 1 auto; min-height: 0; width: 100%;">
                             <!-- 是倒转词，应该是多个意思对应一个词汇，按钮总是显示，因为这个词汇是列表里的，就算某些意义不在列表里 -->
                             <div class="d-flex position-relative" style="width: 100%; height: 100%;">
-                                <v-chip v-if="props.word[0]?.__needBtn__" size="small" color="orange-darken-2" variant="tonal" class="position-absolute" style="top: 8px; left: 8px; z-index: 1;">
-                                    {{ getQueueLabel(props.word[0]) }}
-                                </v-chip>
-
                                 <div style="width: 100%; height: 100%;" class="d-flex flex-column justify-space-between flex-shrink-0">
                                     <div class="d-flex align-center justify-center" style="width: 100%; flex: 1 1 auto; overflow-y: auto;">
                                         <p class="text-medium-emphasis text-center px-4 mb-0" style="width: 100%; white-space: pre-line; font-size: 1.1rem; line-height: 1.6rem;">
@@ -335,6 +327,17 @@ const rememberHandleStyle = computed(() => {
 
 let versoScrollFrame = null;
 
+const resetVersoInteraction = () => {
+    if (versoScrollFrame) {
+        cancelAnimationFrame(versoScrollFrame);
+        versoScrollFrame = null;
+    }
+
+    currentVersoIndex.value = 0;
+    rememberProgress.value = 0;
+    rememberDragging.value = false;
+};
+
 const handleVersoScroll = () => {
     if (versoScrollFrame) return;
 
@@ -430,12 +433,10 @@ function cancelRememberDrag() {
 
 watch(
     () => `${props.word[0]?.id ?? ''}:${!!props.word[0]?.__isReversed__}`,
-    () => {
-        currentVersoIndex.value = 0;
-        rememberProgress.value = 0;
-        rememberDragging.value = false;
-    }
+    resetVersoInteraction
 );
+
+watch(verso, resetVersoInteraction);
 
 watch(
     () => props.word,
@@ -521,19 +522,6 @@ function MoveToReviewQueue(item) {
         wordStore.moveBackToReviewQueue(item);
 
     item.__needBtn__ = false;
-}
-
-function getQueueLabel(item) {
-    if (props.cardType === 'review')
-        return 'Q Review';
-
-    const isInLearningQueue = wordStore.reviewQueue.some(w =>
-        w.id === item.id &&
-        w.word === item.word &&
-        w.explanation === item.explanation
-    );
-
-    return isInLearningQueue ? 'Q Learn' : 'Q Review';
 }
 
 function getActiveBaseWord(item) {
