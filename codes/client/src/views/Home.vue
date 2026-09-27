@@ -2,8 +2,7 @@
     <v-container fluid class="pa-0" id="container"
         @keydown.ctrl.enter.stop.prevent="HandleAdd"
         @keydown.meta.enter.stop.prevent="HandleAdd"
-        @keydown.alt.1.prevent="type = 'active'"
-        @keydown.alt.2.prevent="type = 'passive'"
+        @keydown="handleTypeShortcut"
     >
         <v-row no-gutters>
             <v-col cols="12" md="8" class="pa-0">
@@ -450,6 +449,16 @@ function focusRecto() {
 
 function focusVerso() {
     versoInput.value?.focus();
+}
+
+function handleTypeShortcut(event) {
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.isComposing)
+        return;
+
+    if (event.code === 'Digit1' || event.code === 'Digit2') {
+        event.preventDefault();
+        type.value = event.code === 'Digit1' ? 'active' : 'passive';
+    }
 }
 
 async function InitReviewQueue(type) {

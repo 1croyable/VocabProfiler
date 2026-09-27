@@ -1,6 +1,6 @@
 <template>
 	<v-overlay v-model="repeatConfirmDialog" class="repeat-confirm-overlay d-flex justify-center" contained persistent>
-        <div class="repeat-confirm-wrapper">
+        <div ref="dialogContent" class="repeat-confirm-wrapper" tabindex="-1" @keydown.stop="handleKeydown">
             <v-card width="70vw" max-width="784" class="rounded-xl">
                 <v-card-title style="font-size: 20px; color: grey;">"{{ duplicateWords[0]?.word }}" has already been added.</v-card-title>
                 <div class="my-4 pa-2 overflow-x-auto d-flex flex-nowrap hide-scroll-bar">
@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps({
 	modelValue: {
@@ -48,6 +48,15 @@ const repeatConfirmDialog = computed({
 	set: (value) => emit('update:modelValue', value),
 });
 
+const dialogContent = ref(null);
+
+watch(() => props.modelValue, async (isOpen) => {
+    if (isOpen) {
+        await nextTick();
+        dialogContent.value?.focus();
+    }
+}, { flush: 'post' });
+
 function handleKeydown(event) {
     if (!props.modelValue || props.loading)
         return;
@@ -62,14 +71,6 @@ function handleKeydown(event) {
         emit('cancel');
     }
 }
-
-onMounted(() => {
-    window.addEventListener('keydown', handleKeydown);
-});
-
-onBeforeUnmount(() => {
-    window.removeEventListener('keydown', handleKeydown);
-});
 </script>
 
 <style lang="less" scoped>
@@ -85,6 +86,10 @@ onBeforeUnmount(() => {
     width: 100%;
     display: flex;
     justify-content: center;
+}
+
+.repeat-confirm-wrapper:focus {
+    outline: none;
 }
 
 @media (max-width: 960px) {
