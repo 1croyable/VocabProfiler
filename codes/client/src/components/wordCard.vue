@@ -859,6 +859,10 @@ async function reviewOublie(item) {
     margin-top: 10vh;
 }
 
+.mobile-flip-btn {
+    display: none;
+}
+
 @media (max-width: 960px) {
     .flip-container {
         margin-top: 5vh;
@@ -885,6 +889,7 @@ async function reviewOublie(item) {
     }
 
     .mobile-flip-btn {
+        display: inline-grid;
         position: absolute;
         right: 19%;
         bottom: 0;
