@@ -29,7 +29,7 @@ Install Node.js, npm, and MySQL first.
 ```sh
 cd codes/server
 npm ci
-node bin/www
+npm start
 ```
 
 In another terminal, starting from the repository root:
