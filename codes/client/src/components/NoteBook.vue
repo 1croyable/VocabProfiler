@@ -2,7 +2,7 @@
 	<v-card class="bg-transparent elevation-0 d-flex flex-column" elevation="4" width="100%" height="100%">
 		<div class="notebook-header elevation-3">
 			<v-card-title class="text-h6 font-weight-bold">
-				Word Notebook
+				{{ isNote ? noteStore.currentNote?.name : 'Word Notebook' }}
 			</v-card-title>
 
 			<v-card-text>
@@ -61,7 +61,7 @@
 			</v-data-table>
 		</v-card-text>
 
-		<v-btn width="77%" class="mr-8" height="40px" @click="emit('backToTab')">Back to Tab</v-btn>
+		<v-btn width="77%" class="mr-8" height="40px" @click="emit('backToTab')">{{ isNote ? 'Back to Note' : 'Back to Tab' }}</v-btn>
 	</v-card>
 
 	<v-dialog v-model="showEditDialog" persistent max-width="480">
@@ -72,6 +72,7 @@
 			</v-card-title>
 
 			<v-card-text>
+				<v-alert v-if="editError" type="error" density="compact" variant="tonal" class="mb-3">{{ editError }}</v-alert>
 				<v-container class="pa-0">
 					<v-row>
 						<v-col cols="12">
@@ -134,17 +135,21 @@
 
 <script setup>
 import { computed, ref } from 'vue';
-import { useAlertStore, useWordStore } from '@/stores';
+import { useAlertStore, useNoteStore, useWordStore } from '@/stores';
 import { axiosWrapper } from '@/utilities/axios-wrapper';
 import Confirm from '@/components/Confirm.vue';
 
 const emit = defineEmits(['backToTab']);
+const props = defineProps({ source: { type: String, default: 'notebook' } });
 
 const wordStore = useWordStore();
+const noteStore = useNoteStore();
 const alertStore = useAlertStore();
+const isNote = computed(() => props.source === 'note');
 const search = ref('');
 const showEditDialog = ref(false);
 const selectedItem = ref(null);
+const editError = ref('');
 const editForm = ref({
 	word: '',
 	explanation: '',
@@ -163,7 +168,7 @@ const headers = [
 ];
 
 const tableItems = computed(() => {
-	return wordStore.words.map((word, index) => ({
+	return (isNote.value ? noteStore.words : wordStore.words).map((word, index) => ({
 		id: word.id,
 		index: index + 1,
 		word: word.word,
@@ -180,7 +185,7 @@ const saveButtonStatus = computed(() => {
         editForm.value.explanation.trim() !== selectedItem.value?.explanation.trim() ||
         editForm.value.type !== selectedItem.value?.type); // has change
 
-	const isWordDuplicate = wordStore.words.some(word => word.word.trim() === editForm.value.word.trim() &&
+	const isWordDuplicate = (isNote.value ? noteStore.words : wordStore.words).some(word => word.word.trim() === editForm.value.word.trim() &&
 		word.explanation.trim() === editForm.value.explanation.trim() &&
 		word.type === editForm.value.type &&
 		word.id !== selectedItem.value?.id
@@ -224,6 +229,7 @@ function wordFilter(value, query) {
 }
 
 function openEditDialog(event, data) {
+	editError.value = '';
 	selectedItem.value = data?.item?.raw ?? data?.item ?? null;
 	editForm.value = {
 		word: selectedItem.value?.word,
@@ -235,6 +241,7 @@ function openEditDialog(event, data) {
 
 function closeEditDialog() {
 	showEditDialog.value = false;
+	editError.value = '';
 	selectedItem.value = null;
 	editForm.value = {
 		word: '',
@@ -255,22 +262,21 @@ async function saveEdit(){
 			type: editForm.value.type,
 		};
 
-		await axiosWrapper.patch('/word/update', payload);
-
-		const targetIndex = wordStore.words.findIndex(word => word.id === selectedItem.value.id);
-		if (targetIndex !== -1) {
-			wordStore.words[targetIndex] = {
-				...wordStore.words[targetIndex],
-				word: editForm.value.word,
-				explanation: editForm.value.explanation,
-				type: editForm.value.type,
-			};
-			wordStore.rangeWords();
+		if (isNote.value) {
+			await noteStore.updateWord(payload.id, payload);
+		} else {
+			await axiosWrapper.patch('/word/update', payload);
+			const targetIndex = wordStore.words.findIndex(word => word.id === selectedItem.value.id);
+			if (targetIndex !== -1) {
+				wordStore.words[targetIndex] = { ...wordStore.words[targetIndex], ...payload };
+				wordStore.rangeWords();
+			}
 		}
 
 		closeEditDialog();
     } catch (error) {
         console.error('Failed to update word:', error);
+        editError.value = 'Could not update the word. Please try again.';
     } finally {
         alertStore.setLoading(false);
     }
@@ -292,18 +298,21 @@ async function confirmRemoveWord() {
 
 		const wordId = selectedItem.value.id;
 
-		await axiosWrapper.delete(`/word/remove/${wordId}`);
-
-		const targetIndex = wordStore.words.findIndex(word => word.id === wordId);
-
-		if (targetIndex !== -1) {
-			wordStore.words.splice(targetIndex, 1);
-			wordStore.rangeWords();
+		if (isNote.value) {
+			await noteStore.deleteWord(wordId);
+		} else {
+			await axiosWrapper.delete(`/word/remove/${wordId}`);
+			const targetIndex = wordStore.words.findIndex(word => word.id === wordId);
+			if (targetIndex !== -1) {
+				wordStore.words.splice(targetIndex, 1);
+				wordStore.rangeWords();
+			}
 		}
 
 		closeEditDialog();
 	} catch (error) {
 		console.error('Failed to remove word:', error);
+		editError.value = 'Could not remove the word. Please try again.';
 	} finally {
 		alertStore.setLoading(false);
 	}

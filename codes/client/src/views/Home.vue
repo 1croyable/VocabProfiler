@@ -12,7 +12,7 @@
                         <v-card width="42%" class="recto-card rounded-xl pa-4 elevation-4 overflow-y-auto hide-scroll-bar">
                             <v-card-title class="d-flex flex-column ga-1">
                                 
-                                <v-menu :disabled="currCard.length > 0 || alertStore.loading">
+                                <v-menu v-if="workspaceMode === 'notebook'" :disabled="currCard.length > 0 || alertStore.loading">
                                     <template #activator="{ props }">
                                         <v-chip
                                             v-bind="props"
@@ -35,6 +35,20 @@
                                             <v-list-item-title class="text-truncate">
                                                 {{ notebook.name }}
                                             </v-list-item-title>
+                                        </v-list-item>
+                                    </v-list>
+                                </v-menu>
+
+                                <v-menu v-else :disabled="alertStore.loading">
+                                    <template #activator="{ props }">
+                                        <v-chip v-bind="props" color="amber-darken-3" variant="tonal" prepend-icon="mdi-note-text-outline" style="max-width: 100%;">
+                                            <span class="text-truncate d-inline-block" style="max-width: 220px;">{{ noteStore.currentNote?.name }}</span>
+                                        </v-chip>
+                                    </template>
+                                    <v-list density="compact">
+                                        <v-list-item v-for="note in noteStore.notes" :key="note.id" :active="note.id === noteStore.currentNote?.id" @click="quickSelectNote(note)">
+                                            <template #prepend><v-icon>{{ note.id === noteStore.currentNote?.id ? 'mdi-check' : 'mdi-note-outline' }}</v-icon></template>
+                                            <v-list-item-title>{{ note.name }}</v-list-item-title>
                                         </v-list-item>
                                     </v-list>
                                 </v-menu>
@@ -76,6 +90,7 @@
                                         </transition>
                                     </div>
                                     <v-chip v-if="exactDuplicateExists" color="red" text-color="white" class="align-self-center">Exact duplicate found</v-chip>
+                                    <v-alert v-if="entryError" type="error" density="compact" variant="tonal" class="mt-2">{{ entryError }}</v-alert>
                                 </div>
                                 <v-divider :thickness="0.5" length="100%" class="mb-6 border-opacity-100"></v-divider>
                             </v-card-title>
@@ -124,11 +139,23 @@
                             ></wordCard>
                         </div>
                         <!-- 单词表界面 -->
-                        <NoteBook v-else-if="showNotebook" @backToTab="BackToTab"></NoteBook>
+                        <NoteBook v-else-if="showNotebook" :source="workspaceMode" @backToTab="BackToTab"></NoteBook>
                         <!-- 主界面 -->
                         <div v-else class="d-flex flex-column" style="height: 100%;">
                             <!-- 选项卡 -->
-                            <v-card elevation="4">
+                            <v-card v-if="workspaceMode === 'note'" elevation="4" class="pa-5">
+                                <div class="d-flex align-center ga-2 mb-3">
+                                    <v-icon icon="mdi-note-text-outline" color="amber-darken-3" />
+                                    <span class="text-h6 text-truncate">{{ noteStore.currentNote?.name }}</span>
+                                </div>
+                                <p class="text-body-1 mb-1">{{ noteStore.words.length }} saved words</p>
+                                <p class="text-body-2 text-medium-emphasis mb-0">
+                                    {{ noteStore.words.filter(word => word.type === 'active').length }} active ·
+                                    {{ noteStore.words.filter(word => word.type === 'passive').length }} passive
+                                </p>
+                                <p class="text-body-2 text-medium-emphasis mt-4 mb-0">These words are saved for later and are not in your review queue.</p>
+                            </v-card>
+                            <v-card v-else elevation="4">
                                 <v-tabs color="primary" v-model="tab" align-tabs="center">
                                     <v-tab value="a">Active Words</v-tab>
                                     <v-tab value="p">Passive Words</v-tab>
@@ -176,7 +203,7 @@
                             <!-- 选项卡下面 -->
                             <div style="flex: 1 1 0;" class="d-flex flex-column justify-end align-center">
                                 <!-- 笔记本管理 -->
-                                <div class="d-flex align-center" style="width: 100%;">
+                                <div v-if="workspaceMode === 'notebook'" class="d-flex align-center" style="width: 100%;">
                                     <v-btn @click="ChangeNotebook" width="60%" height="50" class="bg-transparent align-self-start elevation-1">
                                         Change Notebook
                                         <template #prepend>
@@ -188,17 +215,37 @@
                                         <p class="overflow-hidden text-truncate">{{ wordStore.currentNotebook.name }}</p>
                                     </div>
                                 </div>
+                                <div v-else class="d-flex align-center" style="width: 100%;">
+                                    <v-btn @click="showManageNotesUI = true" width="60%" height="50" class="bg-transparent align-self-start elevation-1" :disabled="alertStore.loading">
+                                        Change / manage Notes
+                                        <template #prepend><v-icon color="amber-darken-3" size="x-large">mdi-swap-horizontal</v-icon></template>
+                                    </v-btn>
+                                    <div class="d-flex align-center overflow-hidden">
+                                        <v-icon size="x-large">mdi-menu-right</v-icon>
+                                        <p class="overflow-hidden text-truncate">{{ noteStore.currentNote?.name }}</p>
+                                    </div>
+                                </div>
+                                <v-btn v-if="workspaceMode === 'notebook'" @click="showManageNotesUI = true" width="100%" class="mb-1 bg-transparent" :disabled="alertStore.loading">
+                                    Manage Notes
+                                    <template #prepend><v-icon color="amber-darken-3" size="large">mdi-note-multiple-outline</v-icon></template>
+                                </v-btn>
                                 <!-- 包管理 -->
-                                <v-btn @click="ShowImport" width="100%" class="mb-1 bg-transparent">
+                                <v-btn v-if="workspaceMode === 'notebook'" @click="ShowImport" width="100%" class="mb-1 bg-transparent">
                                     Import Word Pack
                                     <template #prepend>
                                         <v-icon color="cyan-darken-4" size="large">mdi-package-variant</v-icon>
                                     </template>
                                 </v-btn>
+                                <v-btn v-if="workspaceMode === 'note'" width="100%" class="mb-1 bg-transparent" @click="goToNotebook">
+                                    Go To Notebook
+                                    <template #prepend>
+                                        <v-icon icon="mdi-notebook-outline" size="large" />
+                                    </template>
+                                </v-btn>
                                 <!-- 笔记本查看和登出 -->
                                 <div id="tools-region" class="bg-transparent" style="width: 100%;">
                                     <v-btn width="77%" class="mr-8 bg-transparent" height="50px" @click="HandleViewNoteBook">
-                                        View Notebook
+                                        {{ workspaceMode === 'note' ? 'View Note' : 'View Notebook' }}
                                         <template #prepend>
                                             <v-icon color="indigo-darken-1" size="large">mdi-notebook-heart</v-icon>
                                         </template>
@@ -217,6 +264,8 @@
         
         <ChangeNotebookDialog v-model="showChangeNotebookUI" :notebookNumbers="notebookNumbers"/>
 
+        <ManageNotes v-model="showManageNotesUI" @select="enterNote" @deleted="handleNoteDeleted" @applied="handleNoteApplied" />
+
         <ImportWordPackDialog v-model="showImportUI"/>
 
         <Confirm v-model="showLogoutConfirm" title="Log Out" message="Are you sure you want to log out?" confirm-text="Confirm" cancel-text="Cancel" @confirm="DoLogout"/>
@@ -228,7 +277,7 @@
 <script setup>
 import { computed, onMounted, ref, nextTick, onBeforeUnmount } from 'vue';
 import { useDisplay } from 'vuetify';
-import { useWordStore, useAlertStore, useAuthStore } from '@/stores';
+import { useWordStore, useAlertStore, useAuthStore, useNoteStore } from '@/stores';
 import { axiosWrapper } from '../utilities/axios-wrapper';
 import StartButton from '@/components/StartButton.vue';
 import wordCard from '@/components/wordCard.vue';
@@ -237,10 +286,12 @@ import NoteBook from '@/components/NoteBook.vue';
 import ImportWordPackDialog from '@/components/ImportWordPack.vue';
 import ChangeNotebookDialog from '@/components/ChangeNotebook.vue';
 import RepeatConfirm from '@/components/RepeatConfirm.vue';
+import ManageNotes from '@/components/ManageNotes.vue';
 
 const type = ref("active");
 const rectoText = ref("");
 const versoText = ref("");
+const entryError = ref("");
 const rectoInput = ref(null);
 const versoInput = ref(null);
 const tab = ref("a");
@@ -254,18 +305,23 @@ const showNotebook = ref(false);
 const showImportUI = ref(false);
 const importedWordPack = ref(null);
 const showChangeNotebookUI = ref(false);
+const showManageNotesUI = ref(false);
+const workspaceMode = ref('notebook');
 const notebookNumbers = ref({});
 const studySeconds = ref(0);
 
 const { mdAndUp: isDesktop } = useDisplay();
 
 const wordStore = useWordStore();
+const noteStore = useNoteStore();
 const alertStore = useAlertStore();
 const authStore = useAuthStore();
 
 const normalizedRectoText = computed(() => wordStore.normalizeInputText(rectoText.value));
 const normalizedVersoText = computed(() => wordStore.normalizeInputText(versoText.value));
-const duplicateWords = computed(() => wordStore.findWords(normalizedRectoText.value, type.value));
+const duplicateWords = computed(() => workspaceMode.value === 'note'
+    ? noteStore.words.filter(word => word.type === type.value && wordStore.normalizeInputText(word.word).toLowerCase() === normalizedRectoText.value.toLowerCase())
+    : wordStore.findWords(normalizedRectoText.value, type.value));
 const exactDuplicateExists = computed(() =>
     duplicateWords.value.some(word => 
         wordStore.normalizeInputText(word.explanation).toLocaleLowerCase() === normalizedVersoText.value.toLocaleLowerCase()
@@ -304,14 +360,14 @@ function stopStudyTimer() {
 }
 
 async function HandleAdd() {
-    if (!normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value)
+    if (alertStore.loading || !normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value)
         return;
 
     if (!normalizedRectoText.value.trim() || !normalizedVersoText.value.trim())
         return;
 
     // 确认词汇存在与否，如果已存在，就询问是否重复添加
-    const existingWord = wordStore.findWord(normalizedRectoText.value, type.value);
+    const existingWord = duplicateWords.value[0];
     if (existingWord) {
         repeatConfirmDialog.value = true;
     }
@@ -321,22 +377,33 @@ async function HandleAdd() {
 }
 
 async function Add(){
-    if (!normalizedRectoText.value || !normalizedVersoText.value) return;
+    if (alertStore.loading || !normalizedRectoText.value || !normalizedVersoText.value || exactDuplicateExists.value) return;
+    entryError.value = '';
     alertStore.setLoading(true);
     try {
-        await wordStore.addWord({
-            word: normalizedRectoText.value,
-            explanation: normalizedVersoText.value,
-            type: type.value,
-            notebook_id: wordStore.currentNotebook.id,
-        });
-    } finally {
-        alertStore.setLoading(false);
-        
+        if (workspaceMode.value === 'note') {
+            await noteStore.addWord({
+                word: normalizedRectoText.value,
+                explanation: normalizedVersoText.value,
+                type: type.value,
+            });
+        } else {
+            await wordStore.addWord({
+                word: normalizedRectoText.value,
+                explanation: normalizedVersoText.value,
+                type: type.value,
+                notebook_id: wordStore.currentNotebook.id,
+            });
+        }
         Close();
 
         await nextTick();
         focusRecto();
+    } catch (error) {
+        console.error('Failed to add word:', error);
+        entryError.value = 'Could not save the word. Please try again.';
+    } finally {
+        alertStore.setLoading(false);
     }
 }
 
@@ -345,6 +412,7 @@ function Close(){
     rectoText.value = "";
     versoText.value = "";
     type.value = "active";
+    entryError.value = '';
 }
 
 function Swap(){
@@ -496,6 +564,11 @@ async function ConbineShowWords(motherWord, currentQueue){
 }
 
 async function BackToTab() {
+    if (workspaceMode.value === 'note') {
+        showNotebook.value = false;
+        return;
+    }
+
     stopStudyTimer();
 
     currCard.value = [];
@@ -574,6 +647,43 @@ function HandleViewNoteBook() {
     if (alertStore.loading) return;
 
     showNotebook.value = true;
+}
+
+function enterNote() {
+    if (!noteStore.currentNote) return;
+    workspaceMode.value = 'note';
+    showNotebook.value = false;
+    Close();
+}
+
+function goToNotebook() {
+    workspaceMode.value = 'notebook';
+    showNotebook.value = false;
+    Close();
+}
+
+async function quickSelectNote(note) {
+    if (alertStore.loading || note.id === noteStore.currentNote?.id) return;
+    try {
+        await noteStore.selectNote(note);
+        showNotebook.value = false;
+        Close();
+    } catch (error) {
+        console.error('Failed to switch note:', error);
+    }
+}
+
+function handleNoteDeleted() {
+    if (workspaceMode.value === 'note' && !noteStore.currentNote) goToNotebook();
+}
+
+async function handleNoteApplied(notebookId) {
+    if (wordStore.currentNotebook?.id !== notebookId) return;
+    try {
+        await wordStore.fetchNotebookAndWords();
+    } catch (error) {
+        console.error('Failed to refresh notebook words:', error);
+    }
 }
 
 async function quickSelectNotebook(notebook) {
