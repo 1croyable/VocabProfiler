@@ -139,7 +139,9 @@ export const useWordStore = defineStore('word', {
             }
 
             this.reviewQueue = thisTurnWords;
-            this.adapteActiveWordReversedWordOrder();
+            if (type === 'active') {
+                this.adapteActiveWordReversedWordOrder();
+            }
             this.activeWordsReversedWordFlagWhenLearn = {};
             this.reviewActiveWordReversedStatusList = {};
             this.reviewActiveWordStatusList = {};
@@ -148,21 +150,33 @@ export const useWordStore = defineStore('word', {
             this.reviewWordLimitPosition = 0;
             return this.reviewQueue.length;
         },
-        adapteActiveWordReversedWordOrder(maxDistance: number = 5) {
+        adapteActiveWordReversedWordOrder(minDistance: number = 5, maxDistance: number = 10) {
             if (!this.reviewQueue.length) return;
-            for (let i = 0; i < this.reviewQueue.length; i++) {
-                const current = this.reviewQueue[i];
-                if (current.__isReversed__) continue;
+
+            // 使用初始正向词列表逐个调整，避免移动反向词时漏掉后续正向词。
+            const forwardWords = this.reviewQueue.filter(word => !word.__isReversed__);
+
+            for (const current of forwardWords) {
+                const currentIndex = this.reviewQueue.indexOf(current);
+                if (currentIndex === -1) continue;
 
                 const reversedIndex = this.reviewQueue.findIndex(
-                    (w, idx) => idx > i && w.__isReversed__ && w.id === current.id
+                    word => word.__isReversed__ && word.id === current.id
                 );
 
                 if (reversedIndex === -1) continue;
-                if (reversedIndex <= i + maxDistance) continue;
+
+                const distance = reversedIndex - currentIndex;
+                if (distance >= minDistance && distance <= maxDistance) continue;
 
                 const [reversedItem] = this.reviewQueue.splice(reversedIndex, 1);
-                const targetIndex = Math.min(i + maxDistance, this.reviewQueue.length);
+                const updatedCurrentIndex = this.reviewQueue.indexOf(current);
+                const targetDistance = distance < minDistance ? minDistance : maxDistance;
+                const targetIndex = Math.min(
+                    updatedCurrentIndex + targetDistance,
+                    this.reviewQueue.length
+                );
+
                 this.reviewQueue.splice(targetIndex, 0, reversedItem);
             }
         },
