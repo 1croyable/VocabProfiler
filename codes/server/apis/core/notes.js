@@ -7,10 +7,8 @@ router.use(authMiddleware);
 
 const database = 'vocab_profiler_db';
 const validId = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
-const validWord = item =>
-    item && typeof item.word === 'string' && item.word.trim().length > 0 && item.word.trim().length <= 255 &&
-    typeof item.explanation === 'string' && item.explanation.trim().length > 0 &&
-    ['active', 'passive'].includes(item.type);
+
+const { createNote, addNoteWord, validWord, cleanWord, wordKey } = require('../../utilities/noteWordManager');
 
 router.get('/', async (req, res) => {
     try {
@@ -38,11 +36,44 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ error: 'Note name must be 1–64 characters' });
 
     try {
-        const name = suppliedName?.trim() || new Date().toLocaleString('sv-SE');
-        const result = await connection.execute(database, 'INSERT INTO notes (user_id, name) VALUES (?, ?)', [req.user.id, name]);
-        res.status(201).json({ id: result.insertId, name, word_count: 0, active_count: 0, passive_count: 0 });
+        const note = await createNote(connection.execute.bind(connection), req.user.id, suppliedName);
+        res.status(201).json(note);
     } catch (error) {
         res.status(500).json({ error: 'Failed to create note' });
+    }
+});
+
+// External JSON array: [{ front, back, type: 'active' | 'passive' }].
+router.post('/import', async (req, res) => {
+    if (!Array.isArray(req.body) || !req.body.length || req.body.length > 1000)
+        return res.status(400).json({ error: 'Expected an array of 1–1000 words' });
+
+    const words = req.body.map(item => ({ word: item.front, explanation: item.back, type: item.type }));
+
+    const invalidIndex = words.findIndex(item => !validWord(item));
+
+    if (invalidIndex !== -1)
+        return res.status(400).json({ error: 'Invalid front, back or type', index: invalidIndex });
+
+    const unique = new Map(words.map(item => [wordKey(item), cleanWord(item)]));
+
+    try {
+        const note = await connection.transaction(database, async execute => {
+            const created = await createNote(execute, req.user.id);
+            for (const item of unique.values()) {
+                await addNoteWord(execute, req.user.id, created.id, item);
+                created.word_count++;
+
+                if (item.type === 'active')
+                    created.active_count++;
+
+                else created.passive_count++;
+            }
+            return created;
+        });
+        res.status(201).json({ ...note, skipped: words.length - unique.size });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to import note' });
     }
 });
 
@@ -91,7 +122,7 @@ router.delete('/:id', async (req, res) => {
 
         if (!result.affectedRows)
             return res.status(404).json({ error: 'Note not found' });
-        
+
         res.json({ message: 'Note deleted' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete note' });
@@ -100,17 +131,8 @@ router.delete('/:id', async (req, res) => {
 
 router.post('/:id/words', async (req, res) => {
     if (!validId(req.params.id) || !validWord(req.body)) return res.status(400).json({ error: 'Invalid word or note ID' });
-    const { word, explanation, type } = req.body;
     try {
-        const result = await connection.execute(database, `
-            INSERT INTO note_words (note_id, word, explanation, type)
-            SELECT n.id, ?, ?, ? FROM notes n
-            WHERE n.id = ? AND n.user_id = ?
-              AND NOT EXISTS (
-                  SELECT 1 FROM note_words nw WHERE nw.note_id = n.id
-                    AND BINARY nw.word = BINARY ? AND BINARY nw.explanation = BINARY ? AND nw.type = ?
-              )
-        `, [word.trim(), explanation.trim(), type, req.params.id, req.user.id, word.trim(), explanation.trim(), type]);
+        const result = await addNoteWord(connection.execute.bind(connection), req.user.id, req.params.id, req.body);
 
         if (!result.affectedRows)
             return res.status(409).json({ error: 'Note not found or word already exists' });
@@ -168,32 +190,50 @@ router.delete('/:id/words/:wordId', async (req, res) => {
 });
 
 router.post('/:id/apply', async (req, res) => {
-    if (!validId(req.params.id) || !validId(req.body.notebook_id))
-        return res.status(400).json({ error: 'Invalid note or notebook ID' });
+    const { notebook_id, words } = req.body;
+
+    if (!validId(req.params.id) || !validId(notebook_id) || !Array.isArray(words) ||
+        !words.length || words.length > 1000 || !words.every(validWord)) {
+        return res.status(400).json({ error: 'Invalid note, notebook ID or reviewed words' });
+    }
+
+    const inputs = words.map(cleanWord);
+
+    if (new Set(inputs.map(wordKey)).size !== inputs.length)
+        return res.status(409).json({ error: 'Identical words exist in the selected batch' });
+
     try {
-        const targets = await connection.execute(database, `
-            SELECT n.id FROM notes n JOIN notebooks nb ON nb.id = ? AND nb.user_id = n.user_id
-            WHERE n.id = ? AND n.user_id = ?
-        `, [req.body.notebook_id, req.params.id, req.user.id]);
+        const added = await connection.transaction(database, async execute => {
+            const targets = await execute(database, `
+                SELECT nb.id FROM notebooks nb
+                JOIN notes n ON n.user_id = nb.user_id
+                WHERE nb.id = ? AND n.id = ? AND nb.user_id = ? FOR UPDATE
+            `, [notebook_id, req.params.id, req.user.id]);
 
-        if (!targets.length)
-            return res.status(404).json({ error: 'Note or notebook not found' });
+            if (!targets.length)
+                throw new Error('Note or notebook not found');
 
-        const result = await connection.execute(database, `
-            INSERT INTO words (user_id, notebook_id, word, explanation, type)
-            SELECT n.user_id, nb.id, nw.word, nw.explanation, nw.type
-            FROM note_words nw
-            JOIN notes n ON n.id = nw.note_id AND n.user_id = ?
-            JOIN notebooks nb ON nb.id = ? AND nb.user_id = n.user_id
-            WHERE n.id = ? AND NOT EXISTS (
-                SELECT 1 FROM words w WHERE w.notebook_id = nb.id AND w.user_id = n.user_id
-                  AND BINARY w.word = BINARY nw.word AND BINARY w.explanation = BINARY nw.explanation AND w.type = nw.type
-            )
-        `, [req.user.id, req.body.notebook_id, req.params.id]);
+            const existing = await execute(database,
+                'SELECT word, explanation, type FROM words WHERE notebook_id = ? AND user_id = ?',
+                [notebook_id, req.user.id]);
 
-        res.json({ added: result.affectedRows });
+            const keys = new Set(existing.map(wordKey));
+
+            if (inputs.some(item => keys.has(wordKey(item))))
+                throw new Error('Identical words already exist; review the conflicts again');
+
+            const placeholders = inputs.map(() => '(?, ?, ?, ?, ?)').join(', ');
+
+            const result = await execute(database,
+                `INSERT INTO words (user_id, notebook_id, word, explanation, type) VALUES ${placeholders}`,
+                inputs.flatMap(item => [req.user.id, notebook_id, item.word, item.explanation, item.type]));
+
+            return result.affectedRows;
+        });
+
+        res.json({ added });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to apply note to notebook' });
+        res.status(error.status || 500).json({ error: error.status ? error.message : 'Failed to apply note to notebook' });
     }
 });
 

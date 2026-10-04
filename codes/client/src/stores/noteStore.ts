@@ -78,8 +78,8 @@ export const useNoteStore = defineStore('notes', {
             this.words = this.words.filter(word => word.id !== id);
             this.updateCounts();
         },
-        async applyToNotebook(note: Note, notebookId: number) {
-            return axiosWrapper.post<{ added: number }>(`/notes/${note.id}/apply`, { notebook_id: notebookId });
+        async applyToNotebook(note: Note, notebookId: number, words: NoteWordInput[]) {
+            return axiosWrapper.post<{ added: number }>(`/notes/${note.id}/apply`, { notebook_id: notebookId, words });
         },
         updateCounts() {
             if (!this.currentNote) return;

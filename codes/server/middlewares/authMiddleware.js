@@ -3,7 +3,8 @@ const { getConfig } = require('../config/configLoader');
 const logger = require('../logs/Winston');
 
 module.exports = (req, res, next) => {
-    const token = req.cookies.token;
+    const authorization = req.get('Authorization');
+    const token = authorization ? authorization.match(/^Bearer (\S+)$/i)?.[1] : req.cookies?.token;
 
     if (!token) {
         logger.warn('未提供有效的Token');

@@ -100,19 +100,22 @@
                     available.
                 </p>
                 <v-select v-model="targetNotebookId" :items="wordStore.notebooks" item-title="name" item-value="id"
-                    label="Choose notebook" variant="outlined" :disabled="alertStore.loading" />
-                <p v-if="targetNotebookId" class="text-body-2">Confirm to add these words to “{{
-                    wordStore.notebooks.find(item => item.id === targetNotebookId)?.name }}” for study. Existing
-                    identical
-                    words are skipped.</p>
+                    label="Choose notebook" variant="outlined" :disabled="alertStore.loading || applying" />
+                <p v-if="targetNotebookId" class="text-body-2">Confirm to review these words before adding them to “{{
+                    wordStore.notebooks.find(item => item.id === targetNotebookId)?.name }}” for study. You can edit or skip conflicting words.</p>
             </v-card-text>
             <v-card-actions>
                 <v-spacer />
-                <v-btn :disabled="alertStore.loading" @click="applyDialog = false">Cancel</v-btn>
-                <v-btn color="primary" :disabled="!targetNotebookId || alertStore.loading"
+                <v-btn :disabled="alertStore.loading || applying" @click="applyDialog = false">Cancel</v-btn>
+                <v-btn color="primary" :disabled="!targetNotebookId || alertStore.loading || applying"
                     @click="applyNote">Confirm</v-btn>
             </v-card-actions>
         </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="reviewDialog" persistent max-width="784">
+        <WordImportReview :source-words="reviewWords" :existing-words="targetWords"
+            :loading="alertStore.loading || applying" @cancel="reviewDialog = false" @submit="submitNote" />
     </v-dialog>
 
     <v-snackbar v-model="showResult" timeout="4000">{{ resultMessage }}</v-snackbar>
@@ -120,6 +123,8 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
+import WordImportReview from './WordImportReview.vue';
+import { axiosWrapper } from '@/utilities/axios-wrapper';
 import { useDisplay } from 'vuetify';
 import { useAlertStore, useNoteStore, useWordStore } from '@/stores';
 
@@ -138,6 +143,10 @@ const selectedNote = ref(null);
 const renameDialog = ref(false);
 const deleteDialog = ref(false);
 const applyDialog = ref(false);
+const reviewDialog = ref(false);
+const reviewWords = ref([]);
+const targetWords = ref([]);
+const applying = ref(false);
 const newName = ref('');
 const targetNotebookId = ref(null);
 const resultMessage = ref('');
@@ -210,15 +219,40 @@ function openApply(note) {
 }
 
 async function applyNote() {
-    if (!selectedNote.value || !targetNotebookId.value || alertStore.loading) return;
+    if (!selectedNote.value || !targetNotebookId.value || alertStore.loading || applying.value) return;
+    applying.value = true;
     try {
-        const { added } = await noteStore.applyToNotebook(selectedNote.value, targetNotebookId.value);
+        // Fetch the chosen destination without replacing the current Pinia notebook or words.
+        const [source, existing] = await Promise.all([
+            axiosWrapper.get(`/notes/${selectedNote.value.id}/words`),
+            axiosWrapper.get(`/word/list?notebook_id=${targetNotebookId.value}`),
+        ]);
+        reviewWords.value = source;
+        targetWords.value = existing;
         applyDialog.value = false;
+        reviewDialog.value = true;
+    } catch (error) { showError('Could not load words for review.'); }
+    finally { applying.value = false; }
+}
+
+async function submitNote(words) {
+    if (!selectedNote.value || !targetNotebookId.value || alertStore.loading || applying.value) return;
+    applying.value = true;
+    try {
+        const { added } = await noteStore.applyToNotebook(selectedNote.value, targetNotebookId.value, words);
+        reviewDialog.value = false;
         emit('applied', targetNotebookId.value);
         resultMessage.value = `${added} words added to the notebook.`;
         showResult.value = true;
-    } catch (error) { showError('Could not apply note to notebook.'); }
+    } catch (error) {
+        showError('Could not apply note. Check conflicts and try again.');
+        try { 
+            targetWords.value = await axiosWrapper.get(`/word/list?notebook_id=${targetNotebookId.value}`);
+        }
+        catch { }
+    } finally { applying.value = false; }
 }
+
 </script>
 
 <style scoped>

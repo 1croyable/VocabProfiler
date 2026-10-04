@@ -57,6 +57,25 @@ class MysqlConnection {
         return this.pools[db];
     }
 
+    async transaction(db, callback) {
+        const client = await this.createPool(db).getConnection();
+        try {
+            await client.beginTransaction();
+            const execute = async (_database, query, params = []) => {
+                const [result] = await client.execute(query, params);
+                return result;
+            };
+            const result = await callback(execute);
+            await client.commit();
+            return result;
+        } catch (error) {
+            await client.rollback();
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
     async execute(db, query, params=[]) {
         // 也支持非参数化查询
         const pool = this.createPool(db);
