@@ -92,18 +92,25 @@
         </v-card>
     </v-dialog>
 
-    <v-dialog v-model="applyDialog" persistent max-width="500">
+    <v-dialog v-model="applyDialog" persistent max-width="800">
         <v-card class="pa-4">
             <v-card-title>Apply to Notebook</v-card-title>
             <v-card-text>
-                <p class="mb-4">Copy the words from “{{ selectedNote?.name }}” into a notebook. The note remains
-                    available.
+                <p class="mb-4">Copy the words from “{{ selectedNote?.name }}” into a notebook.
                 </p>
                 <v-select v-model="targetNotebookId" :items="wordStore.notebooks" item-title="name" item-value="id"
                     label="Choose notebook" variant="outlined" :disabled="alertStore.loading || applying" />
                 <p v-if="targetNotebookId" class="text-body-2">Confirm to review these words before adding them to “{{
                     wordStore.notebooks.find(item => item.id === targetNotebookId)?.name }}” for study. You can edit or skip conflicting words.</p>
             </v-card-text>
+            <div class="d-flex justify-end px-2">
+                <v-checkbox v-model="deleteAfterApply" density="compact" hide-details
+                    class="delete-after-apply flex-grow-0" :disabled="alertStore.loading || applying">
+                    <template #label>
+                        <span class="text-caption">I also want to delete this note after applying it to the notebook.</span>
+                    </template>
+                </v-checkbox>
+            </div>
             <v-card-actions>
                 <v-spacer />
                 <v-btn :disabled="alertStore.loading || applying" @click="applyDialog = false">Cancel</v-btn>
@@ -147,6 +154,7 @@ const reviewDialog = ref(false);
 const reviewWords = ref([]);
 const targetWords = ref([]);
 const applying = ref(false);
+const deleteAfterApply = ref(false);
 const newName = ref('');
 const targetNotebookId = ref(null);
 const resultMessage = ref('');
@@ -203,18 +211,23 @@ function openDelete(note) {
 }
 
 async function deleteNote() {
-    if (!selectedNote.value || alertStore.loading) return;
+    if (!selectedNote.value || alertStore.loading) return false;
     try {
         const deletedId = selectedNote.value.id;
         await noteStore.deleteNote(selectedNote.value);
         deleteDialog.value = false;
         emit('deleted', deletedId);
-    } catch (error) { showError('Could not delete note.'); }
+        return true;
+    } catch (error) {
+        showError('Could not delete note.');
+        return false;
+    }
 }
 
 function openApply(note) {
     selectedNote.value = note;
     targetNotebookId.value = null;
+    deleteAfterApply.value = false;
     applyDialog.value = true;
 }
 
@@ -241,8 +254,11 @@ async function submitNote(words) {
     try {
         const { added } = await noteStore.applyToNotebook(selectedNote.value, targetNotebookId.value, words);
         reviewDialog.value = false;
+        const deleted = deleteAfterApply.value ? await deleteNote() : false;
         emit('applied', targetNotebookId.value);
-        resultMessage.value = `${added} words added to the notebook.`;
+        resultMessage.value = `${added} words added to the notebook.` + (deleteAfterApply.value
+            ? (deleted ? ' Note deleted.' : ' Could not delete the note; it remains available.')
+            : '');
         showResult.value = true;
     } catch (error) {
         showError('Could not apply note. Check conflicts and try again.');
@@ -256,6 +272,10 @@ async function submitNote(words) {
 </script>
 
 <style scoped>
+.delete-after-apply {
+    max-width: 100%;
+}
+
 .notes-dialog {
     height: min(85vh, 800px);
 }
