@@ -45,10 +45,16 @@ router.post('/', async (req, res) => {
 
 // External JSON array: [{ front, back, type: 'active' | 'passive' }].
 router.post('/import', async (req, res) => {
-    if (!Array.isArray(req.body) || !req.body.length || req.body.length > 1000)
-        return res.status(400).json({ error: 'Expected an array of 1–1000 words' });
+    const source = req.body?.source;
+    const inputWords = req.body?.words;
 
-    const words = req.body.map(item => ({ word: item.front, explanation: item.back, type: item.type }));
+    if (!Array.isArray(inputWords) || !inputWords.length || inputWords.length > 1000)
+        return res.status(400).json({ error: 'Expected 1–1000 words' });
+
+    if (source !== undefined && typeof source !== 'string')
+        return res.status(400).json({ error: 'Source must be a string' });
+
+    const words = inputWords.map(item => ({ word: item.front, explanation: item.back, type: item.type }));
 
     const invalidIndex = words.findIndex(item => !validWord(item));
 
@@ -57,9 +63,14 @@ router.post('/import', async (req, res) => {
 
     const unique = new Map(words.map(item => [wordKey(item), cleanWord(item)]));
 
+    const timestamp = new Date().toLocaleString('sv-SE');
+    const name = source?.trim()
+        ? `${source.trim()} - ${timestamp}`
+        : timestamp;
+
     try {
         const note = await connection.transaction(database, async execute => {
-            const created = await createNote(execute, req.user.id);
+            const created = await createNote(execute, req.user.id, name);
             for (const item of unique.values()) {
                 await addNoteWord(execute, req.user.id, created.id, item);
                 created.word_count++;
